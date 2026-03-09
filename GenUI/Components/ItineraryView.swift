@@ -1,0 +1,395 @@
+// Copyright 2025 The Flutter Authors.
+// Use of this source code is governed by a BSD-style license that can be
+// found in the LICENSE file.
+
+import SwiftUI
+import A2UI
+
+/// Displays a multi-day travel itinerary as a compact card that expands
+/// to a full detail sheet. Equivalent to the Flutter `Itinerary` component.
+struct ItineraryView: View {
+    let data: ItineraryData
+    var onEntryAction: ((ItineraryEntryData) -> Void)?
+
+    @State private var isShowingDetail = false
+
+    var body: some View {
+        // Compact card
+        Button {
+            isShowingDetail = true
+        } label: {
+            HStack(spacing: 12) {
+                if let imageView = data.imageView {
+                    imageView
+                        .frame(width: 100, height: 100)
+                        .clipShape(RoundedRectangle(cornerRadius: 10))
+                } else {
+                    let assetName = a2uiExtractAssetName(from: data.imageName)
+                    Image(assetName)
+                        .resizable()
+                        .aspectRatio(contentMode: .fill)
+                        .frame(width: 100, height: 100)
+                        .clipped()
+                        .clipShape(RoundedRectangle(cornerRadius: 10))
+                }
+
+                VStack(alignment: .leading, spacing: 4) {
+                    Text(data.title)
+                        .font(.headline)
+                    Text(data.subheading)
+                        .font(.subheadline)
+                        .foregroundStyle(.secondary)
+                }
+
+                Spacer()
+
+                Image(systemName: "chevron.right")
+                    .foregroundStyle(.secondary)
+            }
+            .padding()
+            .background(.background)
+            .clipShape(RoundedRectangle(cornerRadius: 14))
+            .shadow(color: .black.opacity(0.08), radius: 4, x: 0, y: 2)
+        }
+        .buttonStyle(.plain)
+        .sheet(isPresented: $isShowingDetail) {
+            ItineraryDetailSheet(
+                data: data,
+                onEntryAction: onEntryAction
+            )
+        }
+    }
+}
+
+// MARK: - Itinerary Detail Sheet
+
+struct ItineraryDetailSheet: View {
+    let data: ItineraryData
+    var onEntryAction: ((ItineraryEntryData) -> Void)?
+
+    @Environment(\.dismiss) private var dismiss
+
+    var body: some View {
+        NavigationStack {
+            ScrollView {
+                VStack(alignment: .leading, spacing: 0) {
+                    // Hero image
+                    if let imageView = data.imageView {
+                        imageView
+                            .frame(height: 200)
+                            .frame(maxWidth: .infinity)
+                            .clipped()
+                    } else {
+                        let assetName = a2uiExtractAssetName(from: data.imageName)
+                        Image(assetName)
+                            .resizable()
+                            .aspectRatio(contentMode: .fill)
+                            .frame(height: 200)
+                            .frame(maxWidth: .infinity)
+                            .clipped()
+                    }
+
+                    VStack(alignment: .leading, spacing: 8) {
+                        Text(data.title)
+                            .font(.title)
+                            .fontWeight(.bold)
+
+                        Text(data.subheading)
+                            .font(.title3)
+                            .foregroundStyle(.secondary)
+                    }
+                    .padding()
+
+                    // Days
+                    ForEach(data.days) { day in
+                        ItineraryDayView(
+                            day: day,
+                            onEntryAction: onEntryAction,
+                            onDismiss: { dismiss() }
+                        )
+                    }
+                }
+            }
+            .toolbar {
+                ToolbarItem(placement: .cancellationAction) {
+                    Button("Close") { dismiss() }
+                }
+            }
+        }
+    }
+}
+
+// MARK: - Itinerary Day
+
+struct ItineraryDayView: View {
+    let day: ItineraryDayData
+    var onEntryAction: ((ItineraryEntryData) -> Void)?
+    var onDismiss: (() -> Void)?
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            // Day header
+            HStack(spacing: 12) {
+                if let imageView = day.imageView {
+                    imageView
+                        .frame(width: 80, height: 80)
+                        .clipShape(RoundedRectangle(cornerRadius: 8))
+                } else {
+                    let assetName = a2uiExtractAssetName(from: day.imageName)
+                    Image(assetName)
+                        .resizable()
+                        .aspectRatio(contentMode: .fill)
+                        .frame(width: 80, height: 80)
+                        .clipped()
+                        .clipShape(RoundedRectangle(cornerRadius: 8))
+                }
+
+                VStack(alignment: .leading, spacing: 2) {
+                    Text(day.title)
+                        .font(.headline)
+                    Text(day.subtitle)
+                        .font(.subheadline)
+                        .foregroundStyle(.secondary)
+                }
+            }
+
+            Text(day.description)
+                .font(.body)
+                .foregroundStyle(.secondary)
+
+            Divider()
+
+            // Entries
+            ForEach(day.entries) { entry in
+                ItineraryEntryView(
+                    entry: entry,
+                    onAction: onEntryAction,
+                    onDismiss: onDismiss
+                )
+            }
+        }
+        .padding()
+        .background(
+            RoundedRectangle(cornerRadius: 12)
+                .stroke(Color.gray.opacity(0.2), lineWidth: 1)
+        )
+        .padding(.horizontal)
+        .padding(.vertical, 4)
+    }
+}
+
+// MARK: - Itinerary Entry
+
+struct ItineraryEntryView: View {
+    let entry: ItineraryEntryData
+    var onAction: ((ItineraryEntryData) -> Void)?
+    var onDismiss: (() -> Void)?
+
+    var body: some View {
+        HStack(alignment: .top, spacing: 12) {
+            Image(systemName: entry.type.systemImageName)
+                .foregroundStyle(.blue)
+                .frame(width: 24)
+
+            VStack(alignment: .leading, spacing: 4) {
+                HStack {
+                    Text(entry.title)
+                        .font(.subheadline)
+                        .fontWeight(.semibold)
+
+                    Spacer()
+
+                    switch entry.status {
+                    case .chosen:
+                        Image(systemName: "checkmark.circle.fill")
+                            .foregroundStyle(.green)
+                    case .choiceRequired:
+                        Button("Choose") {
+                            onAction?(entry)
+                            onDismiss?()
+                        }
+                        .buttonStyle(.borderedProminent)
+                        .controlSize(.small)
+                    case .noBookingRequired:
+                        EmptyView()
+                    }
+                }
+
+                if let subtitle = entry.subtitle {
+                    Text(subtitle)
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                }
+
+                HStack(spacing: 4) {
+                    Image(systemName: "clock")
+                        .font(.caption2)
+                    Text(entry.time)
+                        .font(.caption)
+                }
+                .foregroundStyle(.secondary)
+
+                if let address = entry.address {
+                    HStack(spacing: 4) {
+                        Image(systemName: "mappin")
+                            .font(.caption2)
+                        Text(address)
+                            .font(.caption)
+                    }
+                    .foregroundStyle(.secondary)
+                }
+
+                if let cost = entry.totalCost {
+                    HStack(spacing: 4) {
+                        Image(systemName: "dollarsign.circle")
+                            .font(.caption2)
+                        Text(cost)
+                            .font(.caption)
+                    }
+                    .foregroundStyle(.secondary)
+                }
+
+                Text(entry.bodyText)
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+                    .padding(.top, 2)
+            }
+        }
+        .padding(.vertical, 6)
+    }
+}
+
+#Preview {
+    ItineraryView(data: MockData.greeceItinerary)
+        .padding()
+}
+
+// MARK: - A2UI Wrapper
+
+/// Renders an `Itinerary` from an A2UI `ComponentNode`.
+struct A2UIItineraryView: View {
+    let node: ComponentNode
+    let viewModel: SurfaceViewModel
+    @Environment(\.a2uiActionHandler) private var actionHandler
+
+    private var props: [String: AnyCodable] { node.payload.properties }
+
+    var body: some View {
+        let data = buildItineraryData()
+        ItineraryView(data: data) { entry in
+            // When an entry with choiceRequired is tapped, fire the action
+            if let actionHandler {
+                if let choiceAction = entry.choiceRequiredAction,
+                   let resolved = resolveChoiceAction(choiceAction) {
+                    actionHandler(resolved)
+                } else {
+                    // Fallback: use a default action
+                    let action = ResolvedAction(
+                        name: "chooseEntry",
+                        sourceComponentId: node.id,
+                        context: ["entryTitle": .string(entry.title)]
+                    )
+                    actionHandler(action)
+                }
+            }
+        }
+        .padding(.horizontal)
+    }
+
+    /// Resolve a choiceRequiredAction dictionary into a ResolvedAction.
+    private func resolveChoiceAction(_ actionDict: [String: Any]) -> ResolvedAction? {
+        guard let data = try? JSONSerialization.data(withJSONObject: actionDict),
+              let codable = try? JSONDecoder().decode(AnyCodable.self, from: data) else {
+            return nil
+        }
+        return A2UIHelpers.resolveAction(codable, node: node, viewModel: viewModel)
+    }
+
+    private func buildItineraryData() -> ItineraryData {
+        let title = A2UIHelpers.resolveString(props["title"], viewModel: viewModel, dataContextPath: node.dataContextPath) ?? ""
+        let subheading = A2UIHelpers.resolveString(props["subheading"], viewModel: viewModel, dataContextPath: node.dataContextPath) ?? ""
+        let heroImageName = props["imageChildId"]?.stringValue.flatMap { childId in
+            viewModel.components[childId]?.component?.properties["url"]?.stringValue
+        } ?? "assets/travel_images/santorini_panorama.jpg"
+        let heroImageNode = props["imageChildId"]?.stringValue.flatMap {
+            viewModel.buildComponentNode(for: $0, dataContextPath: node.dataContextPath)
+        }
+        let heroImageView = heroImageNode.map { n in
+            AnyView(A2UIComponentView(node: n, viewModel: viewModel))
+        }
+
+        var days: [ItineraryDayData] = []
+        if case .array(let daysArray) = props["days"] {
+            for dayVal in daysArray {
+                guard case .dictionary(let dayDict) = dayVal else { continue }
+                let dayTitle = dayDict["title"]?.stringValue ?? ""
+                let daySubtitle = dayDict["subtitle"]?.stringValue ?? ""
+                let dayDesc = dayDict["description"]?.stringValue ?? ""
+                let dayImageChildId = dayDict["imageChildId"]?.stringValue
+                let dayImageName = dayImageChildId.flatMap { childId in
+                    viewModel.components[childId]?.component?.properties["url"]?.stringValue
+                } ?? "assets/travel_images/akrotiri_spring_fresco_santorini.jpg"
+                let dayImageNode = dayImageChildId.flatMap {
+                    viewModel.buildComponentNode(for: $0, dataContextPath: node.dataContextPath)
+                }
+                let dayImageView = dayImageNode.map { n in
+                    AnyView(A2UIComponentView(node: n, viewModel: viewModel))
+                }
+
+                var entries: [ItineraryEntryData] = []
+                if case .array(let entriesArray) = dayDict["entries"] {
+                    for entryVal in entriesArray {
+                        guard case .dictionary(let entryDict) = entryVal else { continue }
+                        let entryTitle = entryDict["title"]?.stringValue ?? ""
+                        let entrySubtitle = entryDict["subtitle"]?.stringValue
+                        let bodyText = entryDict["bodyText"]?.stringValue ?? ""
+                        let address = entryDict["address"]?.stringValue
+                        let time = entryDict["time"]?.stringValue ?? ""
+                        let totalCost = entryDict["totalCost"]?.stringValue
+                        let typeStr = entryDict["type"]?.stringValue ?? "activity"
+                        let statusStr = entryDict["status"]?.stringValue ?? "noBookingRequired"
+
+                        // Parse choiceRequiredAction if present
+                        var choiceRequiredAction: [String: Any]?
+                        if case .dictionary(let actionDict) = entryDict["choiceRequiredAction"] {
+                            // Convert [String: AnyCodable] to [String: Any] for storage
+                            if let data = try? JSONEncoder().encode(AnyCodable.dictionary(actionDict)),
+                               let jsonObj = try? JSONSerialization.jsonObject(with: data) as? [String: Any] {
+                                choiceRequiredAction = jsonObj
+                            }
+                        }
+
+                        entries.append(ItineraryEntryData(
+                            title: entryTitle,
+                            subtitle: entrySubtitle,
+                            bodyText: bodyText,
+                            address: address,
+                            time: time,
+                            totalCost: totalCost,
+                            type: ItineraryEntryType(rawValue: typeStr) ?? .activity,
+                            status: ItineraryEntryStatus(rawValue: statusStr) ?? .noBookingRequired,
+                            choiceRequiredAction: choiceRequiredAction
+                        ))
+                    }
+                }
+
+                days.append(ItineraryDayData(
+                    title: dayTitle,
+                    subtitle: daySubtitle,
+                    description: dayDesc,
+                    imageName: dayImageName,
+                    entries: entries,
+                    imageView: dayImageView
+                ))
+            }
+        }
+
+        return ItineraryData(
+            title: title,
+            subheading: subheading,
+            imageName: heroImageName,
+            days: days,
+            imageView: heroImageView
+        )
+    }
+}
