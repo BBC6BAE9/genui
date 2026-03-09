@@ -3,67 +3,23 @@
 // found in the LICENSE file.
 
 import SwiftUI
-import A2UI
 
 /// The main travel planner page with chat conversation and input.
-/// Supports mock (demo), Gemini API, and real agent connection modes.
 struct TravelPlannerView: View {
-    var connectionMode: TravelConnectionMode = .geminiAPI
-    var agentURL: URL?
     var geminiAPIKey: String = ""
 
     @State private var viewModel: TravelPlannerViewModel
     @State private var inputText = ""
-    @State private var connectionError: String?
-    @State private var isConnecting = false
 
-    init(connectionMode: TravelConnectionMode = .geminiAPI, agentURL: URL? = nil, geminiAPIKey: String = "") {
-        self.connectionMode = connectionMode
-        self.agentURL = agentURL
+    init(geminiAPIKey: String = "") {
         self.geminiAPIKey = geminiAPIKey
-
-        // Create viewModel with the correct transport immediately.
-        // For .realAgent the transport is swapped async in .task.
-        let transport: TravelTransport
-        switch connectionMode {
-        case .mock:
-            transport = MockTravelTransport()
-        case .geminiAPI:
-            transport = GeminiTravelTransport(apiKey: geminiAPIKey)
-        case .realAgent:
-            // Placeholder until async connection completes
-            transport = MockTravelTransport()
-        }
-        _viewModel = State(initialValue: TravelPlannerViewModel(transport: transport))
+        _viewModel = State(initialValue: TravelPlannerViewModel(
+            transport: GeminiTravelTransport(apiKey: geminiAPIKey)
+        ))
     }
 
     var body: some View {
-        Group {
-            if isConnecting {
-                ProgressView("Connecting to agent...")
-            } else if let connectionError {
-                ContentUnavailableView(
-                    "Connection Failed",
-                    systemImage: "wifi.exclamationmark",
-                    description: Text(connectionError)
-                )
-            } else {
-                chatView
-            }
-        }
-        .task {
-            // Only need async setup for realAgent
-            if connectionMode == .realAgent, let agentURL {
-                isConnecting = true
-                do {
-                    let transport = try await RealTravelTransport.connect(url: agentURL)
-                    viewModel = TravelPlannerViewModel(transport: transport)
-                } catch {
-                    connectionError = error.localizedDescription
-                }
-                isConnecting = false
-            }
-        }
+        chatView
     }
 
     @ViewBuilder

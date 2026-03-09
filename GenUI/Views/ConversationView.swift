@@ -134,7 +134,7 @@ struct LoadingBubble: View {
                 .agent("Welcome!"),
                 .user("Plan a trip to Greece"),
             ],
-            viewModel: TravelPlannerViewModel()
+            viewModel: TravelPlannerViewModel(transport: GeminiTravelTransport(apiKey: ""))
         )
     }
 }

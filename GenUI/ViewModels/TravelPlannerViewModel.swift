@@ -26,7 +26,7 @@ final class TravelPlannerViewModel {
     private(set) var transport: TravelTransport
     private var contextId: String?
 
-    init(transport: TravelTransport = MockTravelTransport()) {
+    init(transport: TravelTransport) {
         self.transport = transport
     }
 

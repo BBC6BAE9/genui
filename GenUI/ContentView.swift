@@ -4,25 +4,16 @@
 
 import SwiftUI
 
-/// Connection mode for the travel planner.
-enum TravelConnectionMode: String, CaseIterable {
-    case mock = "Demo (Mock)"
-    case geminiAPI = "Gemini API"
-    case realAgent = "Real Agent"
-}
-
 /// The root content view with a tab-based layout.
 /// Provides tabs for the AI chat planner and widget catalog.
 struct ContentView: View {
-    @State private var connectionMode: TravelConnectionMode = .geminiAPI
-    @State private var agentURLString = ""
     @AppStorage("geminiAPIKey") private var geminiAPIKey = ""
     @State private var travelViewId = UUID()
     @State private var showSettings = false
 
-    /// Whether the Gemini API mode is selected but no API key has been provided.
+    /// Whether no API key has been provided.
     private var needsAPIKey: Bool {
-        connectionMode == .geminiAPI && geminiAPIKey.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+        geminiAPIKey.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
     }
 
     var body: some View {
@@ -34,8 +25,6 @@ struct ContentView: View {
                             apiKeyPromptView
                         } else {
                             TravelPlannerView(
-                                connectionMode: connectionMode,
-                                agentURL: connectionMode == .realAgent ? URL(string: agentURLString) : nil,
                                 geminiAPIKey: geminiAPIKey.trimmingCharacters(in: .whitespacesAndNewlines)
                             )
                             .id(travelViewId)
@@ -60,8 +49,6 @@ struct ContentView: View {
                     .sheet(isPresented: $showSettings) {
                         NavigationStack {
                             SettingsView(
-                                connectionMode: $connectionMode,
-                                agentURLString: $agentURLString,
                                 geminiAPIKey: $geminiAPIKey,
                                 onApply: {
                                     travelViewId = UUID()
@@ -88,7 +75,7 @@ struct ContentView: View {
         }
     }
 
-    /// Shown when Gemini API mode is active but no API key has been entered.
+    /// Shown when no API key has been entered.
     private var apiKeyPromptView: some View {
         VStack(spacing: 20) {
             Image(systemName: "key.fill")
@@ -118,48 +105,23 @@ struct ContentView: View {
 // MARK: - Settings
 
 private struct SettingsView: View {
-    @Binding var connectionMode: TravelConnectionMode
-    @Binding var agentURLString: String
     @Binding var geminiAPIKey: String
     var onApply: () -> Void
 
     var body: some View {
         Form {
-            Section("Connection Mode") {
-                Picker("Mode", selection: $connectionMode) {
-                    ForEach(TravelConnectionMode.allCases, id: \.self) { mode in
-                        Text(mode.rawValue).tag(mode)
-                    }
-                }
-                .pickerStyle(.segmented)
-            }
-
-            if connectionMode == .geminiAPI {
-                Section("Gemini API") {
-                    SecureField("API Key", text: $geminiAPIKey)
-                        .autocorrectionDisabled()
-                    Text("Get a key at [aistudio.google.com](https://aistudio.google.com/apikey)")
-                        .font(.caption)
-                        .foregroundStyle(.secondary)
-                }
-            }
-
-            if connectionMode == .realAgent {
-                Section("Agent Connection") {
-                    TextField("Agent URL", text: $agentURLString)
-                        .textContentType(.URL)
-                        .autocorrectionDisabled()
-                }
+            Section("Gemini API") {
+                SecureField("API Key", text: $geminiAPIKey)
+                    .autocorrectionDisabled()
+                Text("Get a key at [aistudio.google.com](https://aistudio.google.com/apikey)")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
             }
 
             Section {
                 Button("Apply & Restart Chat") {
                     onApply()
                 }
-            }
-
-            Section("About") {
-                LabeledContent("Mode", value: connectionMode.rawValue)
             }
         }
     }

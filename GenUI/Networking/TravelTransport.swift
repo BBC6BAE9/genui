@@ -5,7 +5,7 @@
 import Foundation
 import A2UI
 
-/// Abstraction over real/mock agent communication.
+/// Abstraction over agent communication.
 protocol TravelTransport {
     var supportsStreaming: Bool { get }
     func sendText(_ text: String, contextId: String?) async throws -> TransportResponse
