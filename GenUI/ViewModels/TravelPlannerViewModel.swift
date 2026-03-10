@@ -104,7 +104,7 @@ final class TravelPlannerViewModel {
 
     /// Process server messages through the persistent SurfaceManager and build a ChatMessage.
     /// Only newly created surfaces get added to a new ChatMessage.
-    /// Surfaces that are merely updated (via updateComponents on an existing surfaceId)
+    /// Surfaces that are merely updated (via surfaceUpdate on an existing surfaceId)
     /// are updated in-place in the SurfaceManager and re-rendered by the ChatMessage
     /// that originally referenced them — matching Flutter's behavior.
     private func processServerMessages(_ serverMessages: [ServerToClientMessage]) -> ChatMessage? {
@@ -116,12 +116,12 @@ final class TravelPlannerViewModel {
         var newSurfaceIds: [String] = []
         var updatedSurfaceIds: [String] = []
         for msg in serverMessages {
-            if let cs = msg.createSurface, !newSurfaceIds.contains(cs.surfaceId) {
-                newSurfaceIds.append(cs.surfaceId)
+            if let br = msg.beginRendering, !newSurfaceIds.contains(br.surfaceId) {
+                newSurfaceIds.append(br.surfaceId)
             }
-            if let uc = msg.updateComponents {
-                if !newSurfaceIds.contains(uc.surfaceId) && !updatedSurfaceIds.contains(uc.surfaceId) {
-                    updatedSurfaceIds.append(uc.surfaceId)
+            if let su = msg.surfaceUpdate {
+                if !newSurfaceIds.contains(su.surfaceId) && !updatedSurfaceIds.contains(su.surfaceId) {
+                    updatedSurfaceIds.append(su.surfaceId)
                 }
             }
         }

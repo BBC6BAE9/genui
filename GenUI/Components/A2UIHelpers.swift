@@ -28,9 +28,9 @@ enum A2UIHelpers {
         case .string(let s):
             return StringValue(literalString: s)
         case .dictionary(let dict):
-            // Function call: {"call": "...", "args": {...}}
+            // Function call: {"call": "...", "args": {...}} — not representable as StringValue in A2UI SDK; skip.
             if dict["call"] != nil {
-                return StringValue(functionCall: .dictionary(dict))
+                return nil
             }
             // Data path: {"path": "..."}
             if let path = dict["path"]?.stringValue {
@@ -101,4 +101,17 @@ enum A2UIHelpers {
         }
         return viewModel.resolveAction(action, sourceComponentId: node.id, dataContextPath: node.dataContextPath)
     }
+}
+
+// MARK: - Asset name extraction (app-level, not in A2UI SDK)
+
+/// Extracts a Swift asset catalog name from a path or literal string.
+/// Converts Flutter-style paths like `assets/travel_images/santorini_panorama.jpg`
+/// to the last path component without extension (`santorini_panorama`) for use with `Image(_:)`.
+func a2uiExtractAssetName(from pathOrName: String) -> String {
+    let last = pathOrName.split(separator: "/").last.map(String.init) ?? pathOrName
+    if let dot = last.lastIndex(of: ".") {
+        return String(last[..<dot])
+    }
+    return last
 }
