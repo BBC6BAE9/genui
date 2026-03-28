@@ -78,12 +78,12 @@ struct UserMessageBubble: View {
     var body: some View {
         HStack {
             Spacer(minLength: 60)
-            HStack(spacing: 8) {
+            HStack(spacing: 12) {
                 Text(text)
                     .font(.body)
                 Image(systemName: "person.fill")
             }
-            .padding(12)
+            .padding(14)
             .background(.regularMaterial)
             .clipShape(
                 UnevenRoundedRectangle(
@@ -107,7 +107,7 @@ struct ModelMessageBubble: View {
     
     var body: some View {
         HStack {
-            HStack(alignment: .center, spacing: 8) {
+            HStack(alignment: .center, spacing: 12) {
                 Image("smart_toy")
                     .renderingMode(.template)
                     .resizable()
@@ -116,8 +116,7 @@ struct ModelMessageBubble: View {
                     .padding(.top, 2)
                 MarkdownTextView(text: text)
             }
-            .padding(.horizontal, 12)
-            .padding(.vertical, 9)
+            .padding(14)
             .background(.regularMaterial)
             .clipShape(
                 UnevenRoundedRectangle(
@@ -130,7 +129,7 @@ struct ModelMessageBubble: View {
             .shadow(color: .black.opacity(0.1), radius: 2, x: 0, y: 1)
             Spacer(minLength: 60)
         }
-        .padding(.vertical, 4)
+        .padding(.vertical, 5)
         .padding(.horizontal)
     }
 }

@@ -165,16 +165,6 @@ struct TrailheadData {
     let actionName: String
 }
 
-struct TabbedSectionData: Identifiable {
-    let id = UUID()
-    let title: String
-    let childSurfaceId: String
-}
-
-struct TabbedSectionsData {
-    let sections: [TabbedSectionData]
-}
-
 struct HotelListing: Identifiable {
     let id: String
     let listingSelectionId: String

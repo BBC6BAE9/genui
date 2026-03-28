@@ -33,23 +33,6 @@ enum A2UIHelpers {
         return arr.compactMap { resolveString($0, surface: surface, dataContextPath: dataContextPath) }
     }
 
-    /// Resolve a double from a component property.
-    static func resolveDouble(_ value: AnyCodable?, surface: SurfaceModel, dataContextPath: String = "/") -> Double? {
-        guard let value else { return nil }
-        switch value {
-        case .number(let n):
-            return n
-        case .dictionary(let dict):
-            if let path = dict["path"]?.stringValue {
-                return DataContext(surface: surface, path: dataContextPath)
-                    .resolveDynamicValue(.dataBinding(path: path))?.numberValue
-            }
-            return dict["literalNumber"]?.numberValue ?? dict["literal"]?.numberValue
-        default:
-            return nil
-        }
-    }
-
     /// Resolve a boolean from a component property.
     static func resolveBool(_ value: AnyCodable?, surface: SurfaceModel, dataContextPath: String = "/") -> Bool? {
         guard let value else { return nil }

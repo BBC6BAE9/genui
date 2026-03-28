@@ -123,7 +123,6 @@ final class GeminiTravelTransport: TravelTransport {
                        let text = String(data: data, encoding: .utf8) {
                         conversationHistory.append(GenAIPrimitives.ChatMessage.user(text))
                     }
-                    updateClientDataModelForStreaming()
                     try streamContent(continuation: continuation)
                 } catch {
                     continuation.finish(throwing: error)
@@ -140,7 +139,7 @@ final class GeminiTravelTransport: TravelTransport {
                 let requestBody: [String: Any] = [
                     "contents": GeminiContentConverter.toGeminiContents(conversationHistory),
                     "system_instruction": systemInstruction(),
-                    "tools": GeminiContentConverter.toGeminiTools(toolDefinitions()),
+                    "tools": GeminiContentConverter.toGeminiTools(toolDefinitions),
                     "toolConfig": ["functionCallingConfig": ["mode": "AUTO"]]
                 ]
 
@@ -155,7 +154,7 @@ final class GeminiTravelTransport: TravelTransport {
                     throw GeminiError.invalidResponse
                 }
 
-                var accumulatedText = ""
+                var textChunks: [String] = []
                 var accumulatedToolCalls: [ToolPartContent] = []
                 var streamedModelParts: [StandardPart] = []
 
@@ -166,11 +165,11 @@ final class GeminiTravelTransport: TravelTransport {
                           let data = jsonStr.data(using: .utf8),
                           let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any] else { continue }
 
-                    let (calls, textParts) = GeminiContentConverter.extractResponseParts(from: json)
+                    let (_, calls, textParts) = GeminiContentConverter.extractResponseParts(from: json)
                     accumulatedToolCalls.append(contentsOf: calls)
 
                     for chunk in textParts {
-                        accumulatedText += chunk
+                        textChunks.append(chunk)
                         streamedModelParts.append(.text(chunk))
                         continuation.yield(.textChunk(chunk))
                     }
@@ -178,6 +177,8 @@ final class GeminiTravelTransport: TravelTransport {
                         streamedModelParts.append(.tool(call))
                     }
                 }
+
+                let accumulatedText = textChunks.joined()
 
                 // Save model turn to history as a typed ChatMessage
                 if !streamedModelParts.isEmpty {
@@ -222,10 +223,6 @@ final class GeminiTravelTransport: TravelTransport {
         return true
     }
 
-    private func updateClientDataModelForStreaming() {
-        // No-op here; ViewModel calls updateClientDataModel() before action calls.
-    }
-
     // MARK: - Gemini API
 
     private func generateContent() async throws -> [A2uiMessage] {
@@ -234,7 +231,7 @@ final class GeminiTravelTransport: TravelTransport {
         let requestBody: [String: Any] = [
             "contents": GeminiContentConverter.toGeminiContents(conversationHistory),
             "system_instruction": systemInstruction(),
-            "tools": GeminiContentConverter.toGeminiTools(toolDefinitions()),
+            "tools": GeminiContentConverter.toGeminiTools(toolDefinitions),
             "toolConfig": ["functionCallingConfig": ["mode": "AUTO"]]
         ]
 
@@ -279,14 +276,14 @@ final class GeminiTravelTransport: TravelTransport {
         let maxToolCycles = 40
 
         while toolCycles < maxToolCycles {
-            let (toolCalls, textParts) = GeminiContentConverter.extractResponseParts(from: currentJson)
+            let (modelMessage, toolCalls, textParts) = GeminiContentConverter.extractResponseParts(from: currentJson)
 
             if toolCalls.isEmpty {
                 let fullText = textParts.joined()
                 print("[GeminiTransport] Model text response (\(fullText.count) chars): \(fullText.prefix(300))...")
 
                 // Add model response to conversation history as a typed ChatMessage
-                if let modelMessage = GeminiContentConverter.extractModelMessage(from: currentJson) {
+                if let modelMessage {
                     conversationHistory.append(modelMessage)
                 }
 
@@ -309,7 +306,7 @@ final class GeminiTravelTransport: TravelTransport {
             print("[GeminiTransport] Tool cycle \(toolCycles): \(toolCalls.count) function call(s)")
 
             // Add model response (with function calls) to history as a typed ChatMessage
-            if let modelMessage = GeminiContentConverter.extractModelMessage(from: currentJson) {
+            if let modelMessage {
                 conversationHistory.append(modelMessage)
             }
 
@@ -335,7 +332,7 @@ final class GeminiTravelTransport: TravelTransport {
             let nextRequestBody: [String: Any] = [
                 "contents": GeminiContentConverter.toGeminiContents(conversationHistory),
                 "system_instruction": systemInstruction(),
-                "tools": GeminiContentConverter.toGeminiTools(toolDefinitions()),
+                "tools": GeminiContentConverter.toGeminiTools(toolDefinitions),
                 "toolConfig": ["functionCallingConfig": ["mode": "AUTO"]]
             ]
 
@@ -346,43 +343,43 @@ final class GeminiTravelTransport: TravelTransport {
         return []
     }
 
-    /// Returns the tool declarations as typed `ToolDefinition` instances.
+    /// Tool declarations as typed `ToolDefinition` instances.
+    ///
+    /// Stored as a `let` constant — the set of tools never changes during the
+    /// lifetime of the transport. Serialization to Gemini `functionDeclarations`
+    /// format is done by `GeminiContentConverter.toGeminiTools(_:)`.
     ///
     /// Matches the Flutter `ListHotelsTool` schema in `list_hotels_tool.dart`.
-    /// Serialization to Gemini `functionDeclarations` format is done by
-    /// `GeminiContentConverter.toGeminiTools(_:)`.
-    private func toolDefinitions() -> [ToolDefinition] {
-        return [
-            ToolDefinition(
-                name: "listHotels",
-                description: "Lists hotels based on the provided criteria.",
-                inputSchema: [
-                    "type": "object",
-                    "properties": [
-                        "query": [
-                            "type": "string",
-                            "description": "The search query, e.g., \"hotels in Paris\".",
-                        ] as [String: Any],
-                        "checkIn": [
-                            "type": "string",
-                            "description": "The check-in date in ISO 8601 format (YYYY-MM-DD).",
-                            "format": "date",
-                        ] as [String: Any],
-                        "checkOut": [
-                            "type": "string",
-                            "description": "The check-out date in ISO 8601 format (YYYY-MM-DD).",
-                            "format": "date",
-                        ] as [String: Any],
-                        "guests": [
-                            "type": "integer",
-                            "description": "The number of guests.",
-                        ] as [String: Any],
+    private let toolDefinitions: [ToolDefinition] = [
+        ToolDefinition(
+            name: "listHotels",
+            description: "Lists hotels based on the provided criteria.",
+            inputSchema: [
+                "type": "object",
+                "properties": [
+                    "query": [
+                        "type": "string",
+                        "description": "The search query, e.g., \"hotels in Paris\".",
                     ] as [String: Any],
-                    "required": ["query", "checkIn", "checkOut", "guests"],
-                ]
-            ),
-        ]
-    }
+                    "checkIn": [
+                        "type": "string",
+                        "description": "The check-in date in ISO 8601 format (YYYY-MM-DD).",
+                        "format": "date",
+                    ] as [String: Any],
+                    "checkOut": [
+                        "type": "string",
+                        "description": "The check-out date in ISO 8601 format (YYYY-MM-DD).",
+                        "format": "date",
+                    ] as [String: Any],
+                    "guests": [
+                        "type": "integer",
+                        "description": "The number of guests.",
+                    ] as [String: Any],
+                ] as [String: Any],
+                "required": ["query", "checkIn", "checkOut", "guests"],
+            ]
+        ),
+    ]
 
     /// Execute a tool call. Currently supports `listHotels`.
     /// Delegates to `BookingService` matching Flutter's pattern.

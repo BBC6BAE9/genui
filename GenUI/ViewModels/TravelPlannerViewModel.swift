@@ -210,40 +210,6 @@ final class TravelPlannerViewModel {
         return ConversationEntry.agentSurface(ids: newSurfaceIds)
     }
 
-    private func handleStream(_ stream: AsyncThrowingStream<StreamEvent, Error>, loadingIndex: Int) async {
-        do {
-            for try await event in stream {
-                switch event {
-                case .textChunk:
-                    break // handled by collectStream
-                case .status(_, let text, _, let ctxId, _):
-                    if let ctxId { contextId = ctxId }
-                    if loadingIndex < messages.count {
-                        messages[loadingIndex].statusText = text ?? "Working..."
-                    }
-                case .result(let result):
-                    contextId = result.contextId ?? contextId
-                    let agentMessage = processServerMessages(result.messages)
-                    let hasText = result.textResponse?.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty == false
-                    if let agentMessage {
-                        if hasText, let text = result.textResponse {
-                            replaceLoading(at: loadingIndex, with: .agent(text))
-                            messages.append(agentMessage)
-                        } else {
-                            replaceLoading(at: loadingIndex, with: agentMessage)
-                        }
-                    } else if hasText, let text = result.textResponse {
-                        replaceLoading(at: loadingIndex, with: .agent(text))
-                    } else {
-                        removeLoading(at: loadingIndex)
-                    }
-                }
-            }
-        } catch {
-            replaceLoading(at: loadingIndex, with: .agent("Stream error: \(error.localizedDescription)"))
-        }
-    }
-
     /// Collect a stream into a single TransportResponse.
     ///
     /// Mirrors Flutter's A2uiParserTransformer pipeline:

@@ -94,14 +94,7 @@ enum GeminiContentConverter {
     private static func toGeminiToolPart(_ content: ToolPartContent) -> [String: Any]? {
         switch content.kind {
         case .call:
-            var args: [String: Any] = [:]
-            if let arguments = content.arguments {
-                for (key, value) in arguments {
-                    if let anyVal = value.anyValue {
-                        args[key] = anyVal
-                    }
-                }
-            }
+            let args: [String: Any] = (content.arguments ?? [:]).compactMapValues { $0.anyValue }
             return [
                 "functionCall": [
                     "name": content.toolName,
@@ -210,27 +203,6 @@ enum GeminiContentConverter {
 
     // MARK: - Gemini response → ChatMessage
 
-    /// Extracts the model's `ChatMessage` from a Gemini response JSON.
-    ///
-    /// Returns `nil` if the response contains no valid candidate content.
-    static func extractModelMessage(from responseJson: [String: Any]) -> GenAIPrimitives.ChatMessage? {
-        guard
-            let candidates = responseJson["candidates"] as? [[String: Any]],
-            let firstCandidate = candidates.first,
-            let content = firstCandidate["content"] as? [String: Any],
-            let partsJson = content["parts"] as? [[String: Any]]
-        else {
-            return nil
-        }
-
-        let parts: [StandardPart] = partsJson.compactMap { partJson in
-            fromGeminiPart(partJson)
-        }
-        guard !parts.isEmpty else { return nil }
-
-        return GenAIPrimitives.ChatMessage(role: .model, parts: parts)
-    }
-
     /// Converts a Gemini part dictionary back to a `StandardPart`.
     ///
     /// Used when reading model responses to build `ChatMessage` history entries.
@@ -258,12 +230,7 @@ enum GeminiContentConverter {
 
         if let functionResponse = partJson["functionResponse"] as? [String: Any] {
             let name = functionResponse["name"] as? String ?? ""
-            let resultValue: JSONValue?
-            if let response = functionResponse["response"] {
-                resultValue = JSONValue(response)
-            } else {
-                resultValue = nil
-            }
+            let resultValue = functionResponse["response"].flatMap { JSONValue($0) }
             return ToolPart.result(callId: name, toolName: name, result: resultValue)
         }
 
@@ -288,40 +255,38 @@ enum GeminiContentConverter {
 
     /// Extracts function calls and text parts from a Gemini response JSON.
     ///
-    /// Returns a tuple of `(functionCalls, textParts)` where each function call
-    /// is represented as a `ToolPartContent` and text parts are plain strings.
+    /// Returns a tuple of `(chatMessage, toolCalls, textParts)`. The `chatMessage`
+    /// is the fully-typed model turn suitable for appending to conversation history.
+    /// Parsing the JSON once and returning all three avoids redundant traversals
+    /// when the caller needs both the `ChatMessage` and the tool/text breakdown.
     static func extractResponseParts(
         from responseJson: [String: Any]
-    ) -> (toolCalls: [ToolPartContent], textParts: [String]) {
+    ) -> (modelMessage: GenAIPrimitives.ChatMessage?, toolCalls: [ToolPartContent], textParts: [String]) {
         guard
             let candidates = responseJson["candidates"] as? [[String: Any]],
             let firstCandidate = candidates.first,
             let content = firstCandidate["content"] as? [String: Any],
             let partsJson = content["parts"] as? [[String: Any]]
         else {
-            return ([], [])
+            return (nil, [], [])
         }
+
+        let parts: [StandardPart] = partsJson.compactMap { fromGeminiPart($0) }
 
         var toolCalls: [ToolPartContent] = []
         var textParts: [String] = []
-
-        for partJson in partsJson {
-            if let functionCall = partJson["functionCall"] as? [String: Any] {
-                let name = functionCall["name"] as? String ?? ""
-                let argsAny = functionCall["args"] as? [String: Any?] ?? [:]
-                var args: [String: JSONValue] = [:]
-                for (k, v) in argsAny {
-                    if let jv = JSONValue(v) {
-                        args[k] = jv
-                    }
-                }
-                toolCalls.append(.call(callId: name, toolName: name, arguments: args))
-            }
-            if let text = partJson["text"] as? String {
-                textParts.append(text)
+        for part in parts {
+            switch part {
+            case .text(let t): textParts.append(t)
+            case .tool(let tc) where tc.kind == .call: toolCalls.append(tc)
+            default: break
             }
         }
 
-        return (toolCalls, textParts)
+        let modelMessage: GenAIPrimitives.ChatMessage? = parts.isEmpty
+            ? nil
+            : GenAIPrimitives.ChatMessage(role: .model, parts: parts)
+
+        return (modelMessage, toolCalls, textParts)
     }
 }
