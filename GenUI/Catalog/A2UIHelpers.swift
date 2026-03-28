@@ -67,16 +67,3 @@ enum A2UIHelpers {
         return ResolvedAction(name: name, sourceComponentId: node.id, context: context)
     }
 }
-
-// MARK: - Asset name extraction
-
-/// Extracts a Swift asset catalog name from a path or literal string.
-/// Converts Flutter-style paths like `assets/travel_images/santorini_panorama.jpg`
-/// to the last path component without extension (`santorini_panorama`) for use with `Image(_:)`.
-func a2uiExtractAssetName(from pathOrName: String) -> String {
-    let last = pathOrName.split(separator: "/").last.map(String.init) ?? pathOrName
-    if let dot = last.lastIndex(of: ".") {
-        return String(last[..<dot])
-    }
-    return last
-}

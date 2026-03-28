@@ -5,6 +5,23 @@
 import SwiftUI
 import A2UIV09
 
+// MARK: - Data Models
+
+struct TravelCarouselData {
+    let title: String?
+    let items: [TravelCarouselItem]
+}
+
+struct TravelCarouselItem: Identifiable {
+    let id = UUID()
+    let description: String
+    let imageName: String
+    let listingSelectionId: String?
+    let actionName: String
+}
+
+// MARK: - View
+
 /// A horizontally scrolling carousel of travel option cards.
 /// Equivalent to the Flutter `TravelCarousel` catalog component.
 struct TravelCarouselView: View {
@@ -40,7 +57,6 @@ struct TravelCarouselItemView: View {
 
     var body: some View {
         VStack(spacing: 0) {
-            // Image from asset catalog
             let assetName = a2uiExtractAssetName(from: item.imageName)
             Image(assetName)
                 .resizable()
@@ -131,9 +147,7 @@ struct A2UITravelCarouselView: View {
             }
             print("[TravelCarousel] item '\(desc)': imageChildId=\(imageChildId ?? "nil"), imageNode=\(imageNode != nil ? "found" : "NOT FOUND")")
             let listingSelectionId = dict["listingSelectionId"]?.stringValue
-
             let action = A2UIHelpers.resolveAction(dict["action"], node: node, surface: surface)
-
             return CarouselItem(description: desc, imageNode: imageNode, listingSelectionId: listingSelectionId, action: action)
         }
     }

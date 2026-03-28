@@ -5,6 +5,32 @@
 import SwiftUI
 import A2UIV09
 
+// MARK: - Data Models
+
+struct InputGroupData {
+    let submitLabel: String
+    var children: [InputChild]
+    let actionName: String
+}
+
+enum InputChild: Identifiable {
+    case optionsFilter(OptionsFilterChipData)
+    case checkboxFilter(CheckboxFilterChipsData)
+    case dateInput(DateInputChipData)
+    case textInput(TextInputChipData)
+
+    var id: String {
+        switch self {
+        case .optionsFilter(let d): return d.id
+        case .checkboxFilter(let d): return d.id
+        case .dateInput(let d): return d.id
+        case .textInput(let d): return d.id
+        }
+    }
+}
+
+// MARK: - View
+
 /// A group of input chips with a submit button.
 /// Equivalent to the Flutter `InputGroup` catalog component.
 struct InputGroupView: View {
@@ -13,7 +39,6 @@ struct InputGroupView: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 12) {
-            // Chips in a flow layout
             FlowLayout(spacing: 8) {
                 ForEach(Array(data.children.enumerated()), id: \.element.id) { index, child in
                     inputChipView(for: child, at: index)
@@ -66,7 +91,7 @@ struct InputGroupView: View {
     }
 }
 
-// MARK: - Flow Layout
+// MARK: - FlowLayout
 
 /// A simple flow layout that wraps children into multiple lines.
 struct FlowLayout: Layout {
@@ -105,7 +130,6 @@ struct FlowLayout: Layout {
 
         for subview in subviews {
             let idealSize = subview.sizeThatFits(.unspecified)
-            // Cap chip width to container width so text truncates naturally.
             let chipWidth = min(idealSize.width, maxWidth)
             let size = CGSize(width: chipWidth, height: idealSize.height)
             if currentX + chipWidth > maxWidth, currentX > 0 {
@@ -128,18 +152,9 @@ struct FlowLayout: Layout {
     }
 }
 
-#Preview {
-    @Previewable @State var data = MockData.tripPreferencesInputGroup
-    InputGroupView(data: $data) { submitted in
-        print("Submitted: \(submitted.actionName)")
-    }
-    .padding()
-}
-
 // MARK: - A2UI Wrapper
 
 /// Renders an `InputGroup` from an A2UI `ComponentNode`.
-/// The children are the input chip sub-components rendered by the custom renderer.
 struct A2UIInputGroupView: View {
     let node: ComponentNode
     let children: [ComponentNode]
@@ -175,4 +190,12 @@ struct A2UIInputGroupView: View {
         .clipShape(RoundedRectangle(cornerRadius: 14))
         .padding(.horizontal)
     }
+}
+
+#Preview {
+    @Previewable @State var data = MockData.tripPreferencesInputGroup
+    InputGroupView(data: $data) { submitted in
+        print("Submitted: \(submitted.actionName)")
+    }
+    .padding()
 }

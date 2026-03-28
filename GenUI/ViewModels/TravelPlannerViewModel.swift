@@ -24,20 +24,13 @@ final class TravelPlannerViewModel {
     /// Mirrors Flutter's explicit `_scrollToBottom()` calls in travel_planner_page.dart.
     var scrollTrigger: Int = 0
 
-    /// The travel-app catalog (custom components + basic catalog functions).
-    static let travelCatalog = Catalog(
-        id: "https://a2ui.org/specification/v0_9/standard_catalog.json",
-        componentNames: basicCatalog.componentNames.union(Set(TravelComponentNames.allNames)),
-        functions: basicCatalog.functions
-    )
-
     /// Persistent message processor — shared across the entire conversation.
-    /// Supports both the legacy short "travel" catalog ID (used in mocks)
-    /// and the canonical URL (used by the LLM).
+    /// Supports both the canonical `travelAppCatalog` (from `Catalog.swift`,
+    /// mirroring Flutter's `catalog.dart`) and a legacy short-id alias so mock
+    /// data with `catalogId: "travel"` still works.
     let messageProcessor = MessageProcessor(
         catalogs: [
-            travelCatalog,
-            // Legacy short-id alias so mock data with catalogId:"travel" still works.
+            travelAppCatalog,
             Catalog(
                 id: "travel",
                 componentNames: basicCatalog.componentNames.union(Set(TravelComponentNames.allNames)),
@@ -55,6 +48,10 @@ final class TravelPlannerViewModel {
 
     private(set) var transport: TravelTransport
     private var contextId: String?
+
+    func setStreaming(_ enabled: Bool) {
+        (transport as? GeminiTravelTransport)?.supportsStreaming = enabled
+    }
 
     init(transport: TravelTransport) {
         self.transport = transport
@@ -201,7 +198,7 @@ final class TravelPlannerViewModel {
                 if messageProcessor.model.getSurface(sid) == nil {
                     let autoCreate = A2uiMessage.createSurface(CreateSurfacePayload(
                         surfaceId: sid,
-                        catalogId: Self.travelCatalog.id,
+                        catalogId: travelAppCatalog.id,
                         sendDataModel: true
                     ))
                     messageProcessor.processMessages([autoCreate])
@@ -329,17 +326,21 @@ final class TravelPlannerViewModel {
         return TransportResponse(messages: [], contextId: nil, textResponse: nil)
     }
 
-    /// Retry a network call up to 3 times on connection-lost errors (NSURLErrorNetworkConnectionLost / -1005).
     private func withRetry<T>(maxAttempts: Int = 3, operation: @escaping () async throws -> T) async throws -> T {
+        let retryableCodes = [
+            NSURLErrorNetworkConnectionLost,
+            NSURLErrorNotConnectedToInternet,
+            NSURLErrorTimedOut,
+        ]
         var lastError: Error?
         for attempt in 1...maxAttempts {
             do {
                 return try await operation()
-            } catch let error as NSError where error.code == NSURLErrorNetworkConnectionLost || error.code == NSURLErrorNotConnectedToInternet {
+            } catch let error as NSError where retryableCodes.contains(error.code) {
                 lastError = error
                 if attempt < maxAttempts {
-                    let delay = Double(attempt) * 1.5
-                    print("[TravelVM] Network error (attempt \(attempt)/\(maxAttempts)), retrying in \(delay)s...")
+                    let delay = Double(attempt) * 2.0
+                    print("[TravelVM] Retryable error \(error.code) (attempt \(attempt)/\(maxAttempts)), retrying in \(delay)s...")
                     try? await Task.sleep(for: .seconds(delay))
                 }
             }

@@ -5,37 +5,14 @@
 import SwiftUI
 import A2UIV09
 
-/// Presents suggested follow-up topics as tappable chips.
-/// Equivalent to the Flutter `Trailhead` catalog component.
-struct TrailheadView: View {
-    let data: TrailheadData
-    var onTopicSelected: ((String) -> Void)?
+// MARK: - Data Models
 
-    var body: some View {
-        FlowLayout(spacing: 8) {
-            ForEach(data.topics, id: \.self) { topic in
-                Button {
-                    onTopicSelected?(topic)
-                } label: {
-                    Text(topic)
-                        .font(.subheadline)
-                        .padding(.horizontal, 14)
-                        .padding(.vertical, 8)
-                        .background(
-                            Capsule()
-                                .strokeBorder(Color.accentColor.opacity(0.4), lineWidth: 1)
-                                .background(Capsule().fill(Color.accentColor.opacity(0.05)))
-                        )
-                }
-                .buttonStyle(.plain)
-            }
-        }
-        .padding()
-    }
+struct ListingsBookerData {
+    let itineraryName: String
+    var listings: [HotelListing]
 }
 
-/// Organizes content into tabbed sections.
-/// Equivalent to the Flutter `TabbedSections` catalog component.
+// MARK: - View
 
 /// A checkout view for booking hotel listings.
 /// Equivalent to the Flutter `ListingsBooker` catalog component.
@@ -67,7 +44,6 @@ struct ListingsBookerView: View {
                 .fontWeight(.bold)
                 .padding(.horizontal)
 
-            // Listings
             ForEach(data.listings) { listing in
                 ListingCardView(listing: listing, onRemove: {
                     data.listings.removeAll { $0.id == listing.id }
@@ -76,7 +52,6 @@ struct ListingsBookerView: View {
                 } : nil)
             }
 
-            // Grand Total
             VStack(alignment: .leading, spacing: 12) {
                 HStack {
                     Text("Grand Total:")
@@ -114,7 +89,6 @@ struct ListingsBookerView: View {
                     .padding(.vertical, 4)
                 }
 
-                // Book button
                 Button {
                     bookingStatus = .inProgress
                     Task {
@@ -132,7 +106,7 @@ struct ListingsBookerView: View {
                             ProgressView()
                                 .tint(.white)
                         case .done:
-                            Image(systemName: "checkmark")
+                            Label("Booked", systemImage: "checkmark.circle.fill")
                                 .font(.headline)
                         }
                     }
@@ -140,6 +114,7 @@ struct ListingsBookerView: View {
                     .padding(.vertical, 12)
                 }
                 .buttonStyle(.borderedProminent)
+                .tint(bookingStatus == .done ? .green : nil)
                 .disabled(selectedPaymentMethod == nil || bookingStatus != .initial)
             }
             .padding(.horizontal)
@@ -228,120 +203,7 @@ struct ListingCardView: View {
     }
 }
 
-#Preview("Trailhead") {
-    TrailheadView(data: MockData.postItinerarySuggestions)
-}
-
-#Preview("Listings Booker") {
-    @Previewable @State var data = MockData.listingsBooker
-    ListingsBookerView(data: $data)
-}
-
-// MARK: - A2UI Wrappers
-
-/// Renders a `Trailhead` from an A2UI `ComponentNode`.
-struct A2UITrailheadView: View {
-    let node: ComponentNode
-    let surface: SurfaceModel
-    @Environment(\.a2uiActionHandler) private var actionHandler
-
-    private var props: [String: AnyCodable] { node.instance.properties }
-
-    var body: some View {
-        let topics = A2UIHelpers.resolveStringList(props["topics"], surface: surface, dataContextPath: node.dataContextPath)
-
-        FlowLayout(spacing: 8) {
-            ForEach(topics, id: \.self) { topic in
-                Button {
-                    if let baseAction = A2UIHelpers.resolveAction(props["action"], node: node, surface: surface) {
-                        var ctx = baseAction.context
-                        ctx["topic"] = .string(topic)
-                        let action = ResolvedAction(
-                            name: baseAction.name,
-                            sourceComponentId: baseAction.sourceComponentId,
-                            context: ctx
-                        )
-                        actionHandler?(action)
-                    }
-                } label: {
-                    Text(topic)
-                        .font(.subheadline)
-                        .padding(.horizontal, 14)
-                        .padding(.vertical, 8)
-                        .background(
-                            Capsule()
-                                .strokeBorder(Color.accentColor.opacity(0.4), lineWidth: 1)
-                                .background(Capsule().fill(Color.accentColor.opacity(0.05)))
-                        )
-                }
-                .buttonStyle(.plain)
-            }
-        }
-        .padding()
-    }
-}
-
-/// Renders a `TabbedSections` from an A2UI `ComponentNode`.
-struct A2UITabbedSectionsView: View {
-    let node: ComponentNode
-    let children: [ComponentNode]
-    let surface: SurfaceModel
-
-    private var props: [String: AnyCodable] { node.instance.properties }
-    @State private var selectedTab = 0
-
-    private var sections: [SectionInfo] {
-        guard case .array(let sectionsArray) = props["sections"] else { return [] }
-        return sectionsArray.compactMap { sectionVal -> SectionInfo? in
-            guard case .dictionary(let dict) = sectionVal else { return nil }
-            let title = A2UIHelpers.resolveString(dict["title"], surface: surface, dataContextPath: node.dataContextPath) ?? ""
-            let childId = dict["child"]?.stringValue
-            let childNode: ComponentNode? = childId.flatMap { cid in
-                children.first { $0.baseComponentId == cid }
-            }
-            return SectionInfo(title: title, childNode: childNode)
-        }
-    }
-
-    var body: some View {
-        VStack(spacing: 0) {
-            // Tab bar — tabs share width equally, matching Flutter's TabBar behavior
-            HStack(spacing: 0) {
-                ForEach(Array(sections.enumerated()), id: \.offset) { index, section in
-                    Button {
-                        withAnimation { selectedTab = index }
-                    } label: {
-                        Text(section.title)
-                            .font(.subheadline)
-                            .fontWeight(selectedTab == index ? .semibold : .regular)
-                            .foregroundStyle(selectedTab == index ? .primary : .secondary)
-                            .padding(.vertical, 10)
-                            .frame(maxWidth: .infinity)
-                            .overlay(alignment: .bottom) {
-                                if selectedTab == index {
-                                    Rectangle()
-                                        .fill(Color.accentColor)
-                                        .frame(height: 2)
-                                }
-                            }
-                    }
-                    .buttonStyle(.plain)
-                }
-            }
-
-            Divider()
-
-            if selectedTab < sections.count, let childNode = sections[selectedTab].childNode {
-                A2UIComponentView(node: childNode, surface: surface)
-            }
-        }
-    }
-
-    private struct SectionInfo {
-        let title: String
-        let childNode: ComponentNode?
-    }
-}
+// MARK: - A2UI Wrapper
 
 /// Renders a `ListingsBooker` from an A2UI `ComponentNode`.
 struct A2UIListingsBookerView: View {
@@ -390,7 +252,6 @@ struct A2UIListingsBookerView: View {
     }
 }
 
-/// A thin wrapper to bridge the @Binding requirement of ListingsBookerView.
 private struct ListingsBookerViewWrapper: View {
     let itineraryName: String
     @Binding var listings: [HotelListing]
@@ -407,4 +268,9 @@ private struct ListingsBookerViewWrapper: View {
             onModify: onModify
         )
     }
+}
+
+#Preview("Listings Booker") {
+    @Previewable @State var data = MockData.listingsBooker
+    ListingsBookerView(data: $data)
 }

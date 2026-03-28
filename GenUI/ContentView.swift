@@ -13,22 +13,29 @@ struct ContentView: View {
     @State private var showSettings = false
     @State private var showCatalog = false
 
-    /// Whether no API key has been provided.
-    private var needsAPIKey: Bool {
-        geminiAPIKey.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+    /// Resolved API key: env var → user-entered key.
+    private var resolvedAPIKey: String {
+        let stored = geminiAPIKey.trimmingCharacters(in: .whitespacesAndNewlines)
+        if !stored.isEmpty { return stored }
+        return GetApiKey.resolve()
+    }
+
+    private var hasAPIKey: Bool {
+        !resolvedAPIKey.isEmpty
     }
 
     var body: some View {
         NavigationStack {
             Group {
-                if needsAPIKey {
-                    apiKeyPromptView
-                } else {
-                    TravelPlannerView(
-                        geminiAPIKey: geminiAPIKey.trimmingCharacters(in: .whitespacesAndNewlines),
-                        useStreaming: useStreaming
-                    )
+                if hasAPIKey {
+                TravelPlannerView(
+                    geminiAPIKey: resolvedAPIKey
+                )
                     .id(travelViewId)
+                } else {
+                    APIKeyRequiredView {
+                        showSettings = true
+                    }
                 }
             }
             .navigationTitle("Agentic Travel Inc.")
@@ -63,7 +70,7 @@ struct ContentView: View {
                     SettingsView(
                         geminiAPIKey: $geminiAPIKey,
                         useStreaming: $useStreaming,
-                        onApply: {
+                        onRestartChat: {
                             travelViewId = UUID()
                             showSettings = false
                         }
@@ -79,31 +86,6 @@ struct ContentView: View {
         }
     }
 
-    /// Shown when no API key has been entered.
-    private var apiKeyPromptView: some View {
-        VStack(spacing: 20) {
-            Image(systemName: "key")
-                .font(.system(size: 48))
-                .foregroundStyle(.secondary)
-
-            Text("Gemini API Key Required")
-                .font(.title2.bold())
-
-            Text("Enter your Gemini API key in Settings to start planning trips with AI.")
-                .font(.body)
-                .foregroundStyle(.secondary)
-                .multilineTextAlignment(.center)
-                .padding(.horizontal, 40)
-
-            Button {
-                showSettings = true
-            } label: {
-                Label("Open Settings", systemImage: "gearshape")
-            }
-            .buttonStyle(.borderedProminent)
-        }
-        .frame(maxWidth: .infinity, maxHeight: .infinity)
-    }
 }
 
 // MARK: - Settings
@@ -111,12 +93,13 @@ struct ContentView: View {
 private struct SettingsView: View {
     @Binding var geminiAPIKey: String
     @Binding var useStreaming: Bool
-    var onApply: () -> Void
+    var onRestartChat: () -> Void
 
     private var maskedKey: String {
-        let trimmed = geminiAPIKey.trimmingCharacters(in: .whitespacesAndNewlines)
-        guard trimmed.count > 8 else { return trimmed.isEmpty ? "Not configured" : "••••••••" }
-        return String(trimmed.prefix(4)) + "••••" + String(trimmed.suffix(4))
+        let key = GetApiKey.resolve()
+        guard !key.isEmpty else { return "Not set" }
+        guard key.count > 8 else { return "••••••••" }
+        return String(key.prefix(4)) + "••••" + String(key.suffix(4))
     }
 
     var body: some View {
@@ -127,9 +110,12 @@ private struct SettingsView: View {
                 Text("When enabled, responses appear incrementally as they are generated. When disabled (default), the complete response is received before display — matching Flutter's behavior and more reliable for complex UI responses.")
             }
 
-            Section("Gemini API") {
+            Section {
                 NavigationLink {
-                    APIKeySettingsView(geminiAPIKey: $geminiAPIKey)
+                    APIKeySettingsView(
+                        geminiAPIKey: $geminiAPIKey,
+                        onRestartChat: onRestartChat
+                    )
                 } label: {
                     HStack {
                         Text("API Key")
@@ -138,12 +124,10 @@ private struct SettingsView: View {
                             .foregroundStyle(.secondary)
                     }
                 }
-            }
-
-            Section {
-                Button("Apply & Restart Chat") {
-                    onApply()
-                }
+            } header: {
+                Text("Gemini API")
+            } footer: {
+                Text("Priority: user-entered key → GEMINI_API_KEY env var.")
             }
         }
     }
@@ -153,6 +137,7 @@ private struct SettingsView: View {
 
 private struct APIKeySettingsView: View {
     @Binding var geminiAPIKey: String
+    var onRestartChat: () -> Void
 
     var body: some View {
         Form {
@@ -160,13 +145,63 @@ private struct APIKeySettingsView: View {
                 SecureField("API Key", text: $geminiAPIKey)
                     .autocorrectionDisabled()
             } footer: {
-                Text("Get a key at [aistudio.google.com](https://aistudio.google.com/apikey)")
+                Text("Get a key at [aistudio.google.com](https://aistudio.google.com/apikey). Leave empty to use the GEMINI_API_KEY environment variable.")
+            }
+
+            if !geminiAPIKey.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+                Section {
+                    Button("Clear Custom Key", role: .destructive) {
+                        geminiAPIKey = ""
+                    }
+                } footer: {
+                    Text("Removes the custom key and falls back to the environment variable.")
+                }
+            }
+
+            Section {
+                Button("Apply & Restart Chat") {
+                    onRestartChat()
+                }
             }
         }
         .navigationTitle("API Key")
         #if !os(tvOS) && !os(macOS)
         .navigationBarTitleDisplayMode(.inline)
         #endif
+    }
+}
+
+// MARK: - API Key Required
+
+private struct APIKeyRequiredView: View {
+    var onOpenSettings: () -> Void
+
+    var body: some View {
+        VStack(spacing: 24) {
+            Spacer()
+            Image(systemName: "key.fill")
+                .font(.system(size: 48))
+                .foregroundStyle(.secondary)
+            Text("Gemini API Key Required")
+                .font(.title2.bold())
+            Text("To get started, please enter your Gemini API key in Settings, or set the GEMINI_API_KEY environment variable.")
+                .font(.body)
+                .foregroundStyle(.secondary)
+                .multilineTextAlignment(.center)
+                .padding(.horizontal, 32)
+            Button {
+                onOpenSettings()
+            } label: {
+                Label("Open Settings", systemImage: "gearshape")
+            }
+            .buttonStyle(.borderedProminent)
+            Link(
+                "Get a free API key",
+                destination: URL(string: "https://aistudio.google.com/apikey")!
+            )
+            .font(.footnote)
+            Spacer()
+        }
     }
 }
 
