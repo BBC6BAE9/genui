@@ -28,6 +28,15 @@ final class GeminiTravelTransport: TravelTransport {
     /// were generated. Read by the ViewModel to show as a text bubble.
     private(set) var lastTextResponse: String?
 
+    /// Generation config shared by streaming and non-streaming requests.
+    /// An explicit `maxOutputTokens` prevents the model from truncating large
+    /// JSON responses (e.g. TravelCarousel with multiple Image components).
+    /// Flutter uses non-streaming `generateContent` which is less susceptible
+    /// to truncation; streaming needs this safeguard.
+    private static let generationConfig: [String: Any] = [
+        "maxOutputTokens": 65536,
+    ]
+
     init(apiKey: String, model: String = "gemini-3-flash-preview") {
         self.apiKey = apiKey
         self.model = model
@@ -124,7 +133,8 @@ final class GeminiTravelTransport: TravelTransport {
                     "contents": GeminiContentConverter.toGeminiContents(conversationHistory),
                     "system_instruction": systemInstruction(),
                     "tools": GeminiContentConverter.toGeminiTools(toolDefinitions),
-                    "toolConfig": ["functionCallingConfig": ["mode": "AUTO"]]
+                    "toolConfig": ["functionCallingConfig": ["mode": "AUTO"]],
+                    "generationConfig": Self.generationConfig
                 ]
 
                 var request = URLRequest(url: url)
@@ -149,8 +159,12 @@ final class GeminiTravelTransport: TravelTransport {
                           let data = jsonStr.data(using: .utf8),
                           let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any] else { continue }
 
-                    let (_, calls, textParts) = GeminiContentConverter.extractResponseParts(from: json)
+                    let (_, calls, textParts, finishReason) = GeminiContentConverter.extractResponseParts(from: json)
                     accumulatedToolCalls.append(contentsOf: calls)
+
+                    if finishReason == "MAX_TOKENS" {
+                        print("[GeminiTransport] ⚠️ Response truncated (MAX_TOKENS) — output may be incomplete")
+                    }
 
                     for chunk in textParts {
                         textChunks.append(chunk)
@@ -216,7 +230,8 @@ final class GeminiTravelTransport: TravelTransport {
             "contents": GeminiContentConverter.toGeminiContents(conversationHistory),
             "system_instruction": systemInstruction(),
             "tools": GeminiContentConverter.toGeminiTools(toolDefinitions),
-            "toolConfig": ["functionCallingConfig": ["mode": "AUTO"]]
+            "toolConfig": ["functionCallingConfig": ["mode": "AUTO"]],
+            "generationConfig": Self.generationConfig
         ]
 
         let currentJson = try await callGemini(url: url, body: requestBody)
@@ -260,7 +275,11 @@ final class GeminiTravelTransport: TravelTransport {
         let maxToolCycles = 40
 
         while toolCycles < maxToolCycles {
-            let (modelMessage, toolCalls, textParts) = GeminiContentConverter.extractResponseParts(from: currentJson)
+            let (modelMessage, toolCalls, textParts, finishReason) = GeminiContentConverter.extractResponseParts(from: currentJson)
+
+            if finishReason == "MAX_TOKENS" {
+                print("[GeminiTransport] ⚠️ Response truncated (MAX_TOKENS) — output may be incomplete")
+            }
 
             if toolCalls.isEmpty {
                 let fullText = textParts.joined()
@@ -317,7 +336,8 @@ final class GeminiTravelTransport: TravelTransport {
                 "contents": GeminiContentConverter.toGeminiContents(conversationHistory),
                 "system_instruction": systemInstruction(),
                 "tools": GeminiContentConverter.toGeminiTools(toolDefinitions),
-                "toolConfig": ["functionCallingConfig": ["mode": "AUTO"]]
+                "toolConfig": ["functionCallingConfig": ["mode": "AUTO"]],
+                "generationConfig": Self.generationConfig
             ]
 
             currentJson = try await callGemini(url: url, body: nextRequestBody)

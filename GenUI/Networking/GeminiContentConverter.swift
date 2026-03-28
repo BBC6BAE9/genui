@@ -253,22 +253,30 @@ enum GeminiContentConverter {
 
     // MARK: - Response part extraction
 
-    /// Extracts function calls and text parts from a Gemini response JSON.
+    /// Extracts function calls, text parts, and finish reason from a Gemini response JSON.
     ///
-    /// Returns a tuple of `(chatMessage, toolCalls, textParts)`. The `chatMessage`
-    /// is the fully-typed model turn suitable for appending to conversation history.
-    /// Parsing the JSON once and returning all three avoids redundant traversals
-    /// when the caller needs both the `ChatMessage` and the tool/text breakdown.
+    /// Returns a tuple of `(chatMessage, toolCalls, textParts, finishReason)`.
+    /// The `chatMessage` is the fully-typed model turn suitable for appending to
+    /// conversation history. `finishReason` is non-nil when the candidate includes
+    /// one (e.g. `"STOP"`, `"MAX_TOKENS"`). Callers can use `"MAX_TOKENS"` to
+    /// detect truncated output.
     static func extractResponseParts(
         from responseJson: [String: Any]
-    ) -> (modelMessage: GenAIPrimitives.ChatMessage?, toolCalls: [ToolPartContent], textParts: [String]) {
+    ) -> (modelMessage: GenAIPrimitives.ChatMessage?, toolCalls: [ToolPartContent], textParts: [String], finishReason: String?) {
         guard
             let candidates = responseJson["candidates"] as? [[String: Any]],
-            let firstCandidate = candidates.first,
+            let firstCandidate = candidates.first
+        else {
+            return (nil, [], [], nil)
+        }
+
+        let finishReason = firstCandidate["finishReason"] as? String
+
+        guard
             let content = firstCandidate["content"] as? [String: Any],
             let partsJson = content["parts"] as? [[String: Any]]
         else {
-            return (nil, [], [])
+            return (nil, [], [], finishReason)
         }
 
         let parts: [StandardPart] = partsJson.compactMap { fromGeminiPart($0) }
@@ -287,6 +295,6 @@ enum GeminiContentConverter {
             ? nil
             : GenAIPrimitives.ChatMessage(role: .model, parts: parts)
 
-        return (modelMessage, toolCalls, textParts)
+        return (modelMessage, toolCalls, textParts, finishReason)
     }
 }

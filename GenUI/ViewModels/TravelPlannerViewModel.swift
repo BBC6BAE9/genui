@@ -177,6 +177,29 @@ final class TravelPlannerViewModel {
             }
         }
 
+        // Auto-create surfaces for updateComponents that reference a surface
+        // not yet created. In streaming mode, the model may emit updateComponents
+        // before (or without) a separate createSurface message. Flutter avoids
+        // this because it uses non-streaming generateContent and processes all
+        // JSON blocks at once.
+        for msg in serverMessages {
+            if case .updateComponents(let payload) = msg {
+                let sid = payload.surfaceId
+                if messageProcessor.model.getSurface(sid) == nil {
+                    let autoCreate = A2uiMessage.createSurface(CreateSurfacePayload(
+                        surfaceId: sid,
+                        catalogId: Self.travelCatalog.id,
+                        sendDataModel: true
+                    ))
+                    messageProcessor.processMessages([autoCreate])
+                    if !newSurfaceIds.contains(sid) {
+                        newSurfaceIds.append(sid)
+                    }
+                    print("[TravelVM] Auto-created surface '\(sid)' for orphan updateComponents")
+                }
+            }
+        }
+
         // Process all messages through the MessageProcessor (creates SurfaceModels)
         // and then forward each message to the corresponding SurfaceViewModel.
         do {

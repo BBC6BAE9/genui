@@ -64,7 +64,7 @@ private struct SurfaceListView: View {
 #endif
                         return Image(name)
                     }
-                    .padding(.vertical, 4)
+                    .padding(.vertical, Constants.messageVerticalPadding)
             }
         }
     }
@@ -95,7 +95,7 @@ struct UserMessageBubble: View {
             )
             .shadow(color: .black.opacity(0.1), radius: 2, x: 0, y: 1)
         }
-        .padding(.vertical, 4)
+        .padding(.vertical, Constants.messageVerticalPadding)
         .padding(.horizontal)
     }
 }
@@ -129,7 +129,7 @@ struct ModelMessageBubble: View {
             .shadow(color: .black.opacity(0.1), radius: 2, x: 0, y: 1)
             Spacer(minLength: 60)
         }
-        .padding(.vertical, 5)
+        .padding(.vertical, Constants.messageVerticalPadding)
         .padding(.horizontal)
     }
 }
@@ -152,7 +152,7 @@ struct LoadingBubble: View {
             Spacer()
         }
         .padding(.horizontal)
-        .padding(.vertical, 4)
+        .padding(.vertical, Constants.messageVerticalPadding)
     }
 }
 
