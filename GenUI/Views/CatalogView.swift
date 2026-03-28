@@ -165,7 +165,7 @@ struct CatalogView: View {
     nonisolated private static func imageExample() -> [[String: Any]] {
         [
             ["id": "root", "component": "Image",
-             "url": "https://upload.wikimedia.org/wikipedia/commons/thumb/4/47/PNG_transparency_demonstration_1.png/280px-PNG_transparency_demonstration_1.png"]
+             "url": "https://developer.apple.com/assets/elements/icons/swiftui/swiftui-256x256_2x.png"]
         ]
     }
 
@@ -360,6 +360,16 @@ private struct CatalogSurfaceView: View {
         if let rootNode = viewModel.componentTree {
             A2UIComponentView(node: rootNode, surface: viewModel.surface)
                 .a2uiCustomComponentsV09(travelCustomRenderer)
+                .a2uiImageResolver { urlString in
+                    let name = a2uiExtractAssetName(from: urlString)
+                    // Only return an Image if the asset catalog contains this name
+                    #if canImport(UIKit)
+                    guard UIImage(named: name) != nil else { return nil }
+                    #elseif canImport(AppKit)
+                    guard NSImage(named: name) != nil else { return nil }
+                    #endif
+                    return Image(name)
+                }
         }
     }
 }

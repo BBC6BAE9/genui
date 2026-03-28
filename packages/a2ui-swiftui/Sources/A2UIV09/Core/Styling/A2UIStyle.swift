@@ -636,6 +636,12 @@ public struct A2UIClientError: Error, Sendable {
     }
 }
 
+// MARK: - Image Resolver
+
+/// A closure that resolves a non-HTTP URL string (e.g. `assets/travel_images/foo.jpg`)
+/// into a local `SwiftUI.Image`. Return `nil` to fall back to the default placeholder.
+public typealias A2UIImageResolver = @Sendable (String) -> Image?
+
 // MARK: - SwiftUI Environment
 
 private struct A2UIStyleKey: EnvironmentKey {
@@ -644,6 +650,10 @@ private struct A2UIStyleKey: EnvironmentKey {
 
 private struct A2UIActionHandlerKey: EnvironmentKey {
     static let defaultValue: (@Sendable (ResolvedAction) -> Void)? = nil
+}
+
+private struct A2UIImageResolverKey: EnvironmentKey {
+    static let defaultValue: A2UIImageResolver? = nil
 }
 
 extension EnvironmentValues {
@@ -656,11 +666,31 @@ extension EnvironmentValues {
         get { self[A2UIActionHandlerKey.self] }
         set { self[A2UIActionHandlerKey.self] = newValue }
     }
+
+    /// Optional resolver for non-HTTP image URLs (e.g. local asset paths).
+    /// When set, `A2UIImage` will call this before falling back to the placeholder.
+    public var a2uiImageResolver: A2UIImageResolver? {
+        get { self[A2UIImageResolverKey.self] }
+        set { self[A2UIImageResolverKey.self] = newValue }
+    }
 }
 
 // MARK: - View Modifier API
 
 extension View {
+    /// Provide a resolver for non-HTTP image URLs (e.g. local asset paths).
+    ///
+    /// ```swift
+    /// A2UIRendererView(manager: manager)
+    ///     .a2uiImageResolver { urlString in
+    ///         let name = extractAssetName(from: urlString)
+    ///         return Image(name)
+    ///     }
+    /// ```
+    public func a2uiImageResolver(_ resolver: @escaping A2UIImageResolver) -> some View {
+        self.environment(\.a2uiImageResolver, resolver)
+    }
+
     /// Override the appearance of a specific A2UI text variant.
     ///
     /// ```swift

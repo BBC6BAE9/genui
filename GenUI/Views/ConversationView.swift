@@ -53,6 +53,15 @@ private struct SurfaceListView: View {
                         viewModel.handleAction(action, surfaceId: surfaceId)
                     }
                     .a2uiCustomComponentsV09(travelCustomRenderer)
+                    .a2uiImageResolver { urlString in
+                        let name = a2uiExtractAssetName(from: urlString)
+                        #if canImport(UIKit)
+                        guard UIImage(named: name) != nil else { return nil }
+                        #elseif canImport(AppKit)
+                        guard NSImage(named: name) != nil else { return nil }
+                        #endif
+                        return Image(name)
+                    }
                     .padding(.vertical, 4)
             }
         }

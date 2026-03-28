@@ -24,6 +24,7 @@ struct A2UIImage: View {
     let surface: SurfaceModel
 
     @Environment(\.a2uiStyle) private var style
+    @Environment(\.a2uiImageResolver) private var imageResolver
 
     private var dataContextPath: String { node.dataContextPath }
 
@@ -60,6 +61,11 @@ struct A2UIImage: View {
                                         .frame(width: sizing.width, height: sizing.height)
                                 }
                             }
+                        }
+                    } else if let resolver = imageResolver,
+                              let image = resolver(urlString) {
+                        clippedImage(variant: variant, radius: radius, sizing: sizing) {
+                            fitImage(image, fit: props.fit, sizing: sizing)
                         }
                     } else {
                         imagePlaceholder(sizing)
