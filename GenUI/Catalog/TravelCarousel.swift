@@ -132,7 +132,12 @@ struct A2UITravelCarouselView: View {
     }
 
     private var items: [CarouselItem] {
-        guard case .array(let itemsArray) = props["items"] else { return [] }
+        guard case .array(let itemsArray) = props["items"] else {
+            print("[TravelCarousel] No 'items' array found in props")
+            return []
+        }
+        let childIds = children.map { $0.baseComponentId }
+        print("[TravelCarousel] node has \(children.count) children: \(childIds)")
         return itemsArray.compactMap { itemVal -> CarouselItem? in
             guard case .dictionary(let dict) = itemVal else { return nil }
             let desc = A2UIHelpers.resolveString(dict["description"], surface: surface, dataContextPath: node.dataContextPath) ?? ""
@@ -140,6 +145,7 @@ struct A2UITravelCarouselView: View {
             let imageNode = imageChildId.flatMap { childId in
                 children.first { $0.baseComponentId == childId }
             }
+            print("[TravelCarousel] item '\(desc)': imageChildId=\(imageChildId ?? "nil"), imageNode=\(imageNode != nil ? "found" : "NOT FOUND")")
             let listingSelectionId = dict["listingSelectionId"]?.stringValue
             let action = A2UIHelpers.resolveAction(dict["action"], node: node, surface: surface)
             return CarouselItem(description: desc, imageNode: imageNode, listingSelectionId: listingSelectionId, action: action)
