@@ -49,6 +49,10 @@ final class TravelPlannerViewModel {
     private(set) var transport: TravelTransport
     private var contextId: String?
 
+    func setStreaming(_ enabled: Bool) {
+        (transport as? GeminiTravelTransport)?.supportsStreaming = enabled
+    }
+
     init(transport: TravelTransport) {
         self.transport = transport
         // Subscribe to surface creation to auto-create SurfaceViewModels

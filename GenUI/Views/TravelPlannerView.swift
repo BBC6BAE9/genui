@@ -84,9 +84,9 @@ var prompt: [String] {
             the budget, preferred activity types etc.
 
             Then, when the user clicks search, you should update the surface to have a
-            Column with the existing inputGroup, an Itinerary component. When creating
-            the itinerary, include all necessary entries for hotels and transport with
-            generic details and a status of `choiceRequired`.
+            Column with the existing inputGroup, an itineraryWithDetails. When creating
+            the itinerary, include all necessary `itineraryEntry` items for hotels and
+            transport with generic details and a status of `choiceRequired`.
 
             During this step, the user may change their search parameters and resubmit,
             in which case you should regenerate the itinerary to match their desires,
@@ -96,14 +96,14 @@ var prompt: [String] {
             involves booking every accommodation, transport and activity in the
             itinerary one step at a time.
 
-            Here, you should just focus on one item at a time, using an `InputGroup`
-            with chips to ask the user for preferences, and the `TravelCarousel` to show
+            Here, you should just focus on one item at a time, using an `inputGroup`
+            with chips to ask the user for preferences, and the `travelCarousel` to show
             the user different options. When the user chooses an option, you can confirm
             it has been chosen and immediately prompt the user to book the next detail,
             e.g. an activity, hotels, transport etc. When a booking is confirmed, update
-            the original Itinerary component to reflect the booking by updating the
-            relevant entry to have the status `chosen` and including the booking details
-            in the `bodyText`.
+            the original `itineraryWithDetails` to reflect the booking by updating the
+            relevant `itineraryEntry` to have the status `chosen` and including the
+            booking details in the `bodyText`.
 
             When booking a hotel, use inputGroup, providing initial values for check-in
             and check-out dates (nearest weekend). Then use the `listHotels` tool to
@@ -253,7 +253,7 @@ var prompt: [String] {
 /// Mirrors Flutter's `TravelPlannerPage` from `travel_planner_page.dart`.
 struct TravelPlannerView: View {
     var geminiAPIKey: String = ""
-    var useStreaming: Bool = false
+    @AppStorage("useStreaming") private var useStreaming = false
 
     @State private var viewModel: TravelPlannerViewModel
     @State private var inputText = ""
@@ -265,14 +265,14 @@ struct TravelPlannerView: View {
     /// default `GeminiTravelTransport` is created.
     ///
     /// Mirrors Flutter's `TravelPlannerPage({this.aiClient, super.key})`.
-    init(geminiAPIKey: String = "", useStreaming: Bool = false) {
+    init(geminiAPIKey: String = "") {
         self.geminiAPIKey = geminiAPIKey
-        self.useStreaming = useStreaming
+        let streaming = UserDefaults.standard.bool(forKey: "useStreaming")
         _viewModel = State(initialValue: TravelPlannerViewModel(
             transport: GeminiTravelTransport(
                 apiKey: geminiAPIKey,
                 systemInstruction: prompt,
-                useStreaming: useStreaming
+                useStreaming: streaming
             )
         ))
     }
@@ -310,6 +310,9 @@ struct TravelPlannerView: View {
                 withAnimation {
                     proxy.scrollTo("bottom", anchor: .bottom)
                 }
+            }
+            .onChange(of: useStreaming) {
+                viewModel.setStreaming(useStreaming)
             }
         }
     }

@@ -28,10 +28,9 @@ struct ContentView: View {
         NavigationStack {
             Group {
                 if hasAPIKey {
-                    TravelPlannerView(
-                        geminiAPIKey: resolvedAPIKey,
-                        useStreaming: useStreaming
-                    )
+                TravelPlannerView(
+                    geminiAPIKey: resolvedAPIKey
+                )
                     .id(travelViewId)
                 } else {
                     APIKeyRequiredView {

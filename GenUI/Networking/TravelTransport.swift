@@ -6,8 +6,8 @@ import Foundation
 import A2UIV09
 
 /// Abstraction over agent communication.
-protocol TravelTransport {
-    var supportsStreaming: Bool { get }
+protocol TravelTransport: AnyObject {
+    var supportsStreaming: Bool { get set }
     func sendText(_ text: String, contextId: String?) async throws -> TransportResponse
     func sendAction(_ action: ResolvedAction, surfaceId: String, contextId: String?) async throws -> TransportResponse
     func sendTextStream(_ text: String, contextId: String?) -> AsyncThrowingStream<StreamEvent, Error>?
