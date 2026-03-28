@@ -38,7 +38,7 @@ struct TravelPlannerView: View {
                         .id("bottom")
                 }
             }
-            .safeAreaInset(edge: .bottom, spacing: 50) {
+            .safeAreaInset(edge: .bottom, spacing: 0) {
                 ChatInputView(
                     text: $inputText,
                     isProcessing: viewModel.isProcessing

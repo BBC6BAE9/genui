@@ -10,7 +10,7 @@ import GenAIPrimitives
 struct ConversationView: View {
     let messages: [ConversationEntry]
     let viewModel: TravelPlannerViewModel
-
+    
     var body: some View {
         ForEach(messages) { message in
             switch message.role {
@@ -39,12 +39,12 @@ struct ConversationView: View {
 private struct SurfaceListView: View {
     let surfaceIds: [String]
     let viewModel: TravelPlannerViewModel
-
+    
     var body: some View {
         // Read surfaceUpdateCounter to ensure this view re-evaluates
         // when surfaces are updated in-place via updateComponents.
         let _ = viewModel.surfaceUpdateCounter
-
+        
         ForEach(surfaceIds, id: \.self) { surfaceId in
             if let vm = viewModel.surfaceViewModels[surfaceId],
                let rootNode = vm.componentTree {
@@ -57,11 +57,11 @@ private struct SurfaceListView: View {
                     .a2uiCustomComponentsV09(travelCustomRenderer)
                     .a2uiImageResolver { urlString in
                         let name = a2uiExtractAssetName(from: urlString)
-                        #if canImport(UIKit)
+#if canImport(UIKit)
                         guard UIImage(named: name) != nil else { return nil }
-                        #elseif canImport(AppKit)
+#elseif canImport(AppKit)
                         guard NSImage(named: name) != nil else { return nil }
-                        #endif
+#endif
                         return Image(name)
                     }
                     .padding(.vertical, 4)
@@ -74,7 +74,7 @@ private struct SurfaceListView: View {
 
 struct UserMessageBubble: View {
     let text: String
-
+    
     var body: some View {
         HStack {
             Spacer(minLength: 60)
@@ -104,10 +104,10 @@ struct UserMessageBubble: View {
 /// Mirrors Flutter's `ChatMessageView` with `Icons.smart_toy_outlined`.
 struct ModelMessageBubble: View {
     let text: String
-
+    
     var body: some View {
         HStack {
-            HStack(alignment: .top, spacing: 8) {
+            HStack(alignment: .center, spacing: 8) {
                 Image("smart_toy")
                     .renderingMode(.template)
                     .resizable()
@@ -116,7 +116,8 @@ struct ModelMessageBubble: View {
                     .padding(.top, 2)
                 MarkdownTextView(text: text)
             }
-            .padding(12)
+            .padding(.horizontal, 12)
+            .padding(.vertical, 9)
             .background(.regularMaterial)
             .clipShape(
                 UnevenRoundedRectangle(
@@ -136,7 +137,7 @@ struct ModelMessageBubble: View {
 
 struct LoadingBubble: View {
     let statusText: String?
-
+    
     var body: some View {
         HStack {
             HStack(spacing: 8) {
@@ -162,7 +163,7 @@ struct LoadingBubble: View {
 /// Mirrors Flutter's `MarkdownWidget` (gpt_markdown) from utils.dart.
 struct MarkdownTextView: View {
     let text: String
-
+    
     var body: some View {
         if let attributed = try? AttributedString(
             markdown: text,
@@ -188,6 +189,17 @@ struct MarkdownTextView: View {
                 .agent("Welcome!"),
                 .user("Plan a trip to Greece"),
                 .agent("Here's a plan with **bold**, _italic_, and `code`.\n\n- Item 1\n- Item 2"),
+            ],
+            viewModel: TravelPlannerViewModel(transport: GeminiTravelTransport(apiKey: ""))
+        )
+    }
+}
+
+#Preview {
+    ScrollView {
+        ConversationView(
+            messages: [
+                .agent("I'd love to help you plan a trip! To get started, what king of experience are you looking for?"),
             ],
             viewModel: TravelPlannerViewModel(transport: GeminiTravelTransport(apiKey: ""))
         )
