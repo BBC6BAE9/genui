@@ -83,6 +83,7 @@ struct A2UISlider: View {
                 }
             }
             .a2uiAccessibility(node.accessibility, dataContext: dc)
+            .padding(style.leafMargin)
         }
     }
 }

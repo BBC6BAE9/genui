@@ -82,6 +82,7 @@ struct A2UIImage: View {
                 }
             }
             .a2uiAccessibility(node.accessibility, dataContext: dc)
+            .padding(style.leafMargin)
         }
     }
 

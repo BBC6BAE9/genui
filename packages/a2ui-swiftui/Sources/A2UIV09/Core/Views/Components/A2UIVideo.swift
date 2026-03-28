@@ -55,6 +55,7 @@ struct A2UIVideo: View {
                 }
             }
             .a2uiAccessibility(node.accessibility, dataContext: dc)
+            .padding(style.leafMargin)
         }
     }
 }

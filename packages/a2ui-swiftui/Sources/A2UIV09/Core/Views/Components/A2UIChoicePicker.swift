@@ -67,6 +67,7 @@ struct A2UIChoicePicker: View {
                 }
             }
             .a2uiAccessibility(node.accessibility, dataContext: dc)
+            .padding(style.leafMargin)
         }
     }
 }

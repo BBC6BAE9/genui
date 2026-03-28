@@ -31,6 +31,10 @@ import SwiftUI
 ///     .environment(\.a2uiStyle, A2UIStyle(primaryColor: .blue))
 /// ```
 public struct A2UIStyle: Equatable, Sendable {
+    /// Standard leaf margin from the A2UI v0.9 basic catalog implementation guide.
+    /// Mirrors React's `LEAF_MARGIN = '8px'` in `utils.ts`.
+    public static let defaultLeafMargin: CGFloat = 8
+
     public var primaryColor: Color
     public var fontFamily: String?
     /// Per-variant overrides for Text component appearance.
@@ -74,6 +78,13 @@ public struct A2UIStyle: Equatable, Sendable {
     /// Appearance overrides for the AudioPlayer component.
     public var audioPlayerStyle: AudioPlayerComponentStyle
 
+    /// Uniform external margin applied to leaf components (Text, Image, Icon,
+    /// Divider, Slider, Video, AudioPlayer) and outlined containers (Card,
+    /// Button, TextField, CheckBox, ChoicePicker, DateTimeInput, Tabs).
+    /// Structural containers (Column, Row, List) use zero spacing.
+    /// Matches the A2UI v0.9 spec "Leaf-Margin Strategy" (default 8dp).
+    public var leafMargin: CGFloat
+
     public init(
         primaryColor: Color = .accentColor,
         fontFamily: String? = nil,
@@ -90,7 +101,8 @@ public struct A2UIStyle: Equatable, Sendable {
         tabsStyle: TabsComponentStyle = .init(),
         modalStyle: ModalComponentStyle = .init(),
         videoStyle: VideoComponentStyle = .init(),
-        audioPlayerStyle: AudioPlayerComponentStyle = .init()
+        audioPlayerStyle: AudioPlayerComponentStyle = .init(),
+        leafMargin: CGFloat = A2UIStyle.defaultLeafMargin
     ) {
         self.primaryColor = primaryColor
         self.fontFamily = fontFamily
@@ -108,6 +120,7 @@ public struct A2UIStyle: Equatable, Sendable {
         self.modalStyle = modalStyle
         self.videoStyle = videoStyle
         self.audioPlayerStyle = audioPlayerStyle
+        self.leafMargin = leafMargin
     }
 
     /// Build from the raw `[String: String]` dictionary provided by `beginRendering`.
@@ -132,6 +145,7 @@ public struct A2UIStyle: Equatable, Sendable {
         self.multipleChoiceStyle = MultipleChoiceComponentStyle(tintColor: self.primaryColor)
         self.modalStyle = .init()
         self.videoStyle = .init()
+        self.leafMargin = A2UIStyle.defaultLeafMargin
     }
 
     /// The seven text variants defined by the A2UI protocol.
@@ -683,6 +697,7 @@ extension EnvironmentValues {
         get { self[A2UIImageResolverKey.self] }
         set { self[A2UIImageResolverKey.self] = newValue }
     }
+
 }
 
 // MARK: - View Modifier API
@@ -1007,6 +1022,19 @@ extension View {
             style.imageStyles[variant.rawValue] = existing
         }
     }
+
+    /// Override the leaf margin used by A2UI leaf and outlined components.
+    ///
+    /// ```swift
+    /// A2UIRendererView(manager: manager)
+    ///     .a2uiLeafMargin(16)
+    /// ```
+    public func a2uiLeafMargin(_ margin: CGFloat) -> some View {
+        self.transformEnvironment(\.a2uiStyle) { style in
+            style.leafMargin = margin
+        }
+    }
+
 }
 
 // MARK: - Color Hex Initializer

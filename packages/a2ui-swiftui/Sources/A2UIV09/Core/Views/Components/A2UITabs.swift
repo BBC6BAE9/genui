@@ -28,6 +28,8 @@ struct A2UITabs: View {
     let node: ComponentNode
     let surface: SurfaceModel
 
+    @Environment(\.a2uiStyle) private var style
+
     private var dataContextPath: String { node.dataContextPath }
 
     var body: some View {
@@ -41,6 +43,7 @@ struct A2UITabs: View {
                 surface: surface
             )
             .a2uiAccessibility(node.accessibility, dataContext: dc)
+            .padding(style.leafMargin)
         }
     }
 }

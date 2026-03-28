@@ -23,6 +23,8 @@ struct A2UIButton: View {
     let node: ComponentNode
     let surface: SurfaceModel
 
+    @Environment(\.a2uiStyle) private var style
+
     private var dataContextPath: String { node.dataContextPath }
 
     var body: some View {
@@ -38,6 +40,7 @@ struct A2UIButton: View {
                 A2UIComponentView(node: child, surface: surface)
             }
             .a2uiAccessibility(node.accessibility, dataContext: dc)
+            .padding(style.leafMargin)
         }
     }
 }

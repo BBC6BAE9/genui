@@ -9,4 +9,5 @@ import Foundation
 
 enum Constants {
     static let messageVerticalPadding: CGFloat = 5
+    
 }

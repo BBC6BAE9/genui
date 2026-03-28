@@ -410,22 +410,36 @@ final class GeminiTravelTransport: TravelTransport {
     // MARK: - System Instruction
 
     /// Returns the system instruction in Gemini REST API `system_instruction` format.
-    /// Matches Flutter's approach: separate parts for system prompt, date/instructions,
-    /// catalog rules, catalog schema, and optionally the client data model.
+    ///
+    /// Matches Flutter's `_BasicPromptBuilder.systemPrompt()` assembly order:
+    /// 1. systemPromptFragments (= prompt list: currentDate, systemPrompt, uiGenerationRestriction)
+    /// 2. "Use the provided tools..."
+    /// 3. technicalPossibilities (3 IMPORTANT statements)
+    /// 4. catalog.systemPromptFragments (empty for travelAppCatalog)
+    /// 5. allowedOperations.systemPromptFragments (controllingTheUI, outputFormat)
+    /// 6. A2UI JSON Schema
+    /// 7. Client Data Model (if available)
     private func systemInstruction() -> [String: Any] {
         let dateString = ISO8601DateFormatter().string(from: Date()).prefix(10)
         var parts: [[String: Any]] = [
-            ["text": Self.systemPrompt],
+            // --- systemPromptFragments (= Flutter's `prompt` list) ---
             ["text": "Current Date: \(dateString)"],
-            // Matches Flutter PromptBuilder.custom() injected fragments:
+            ["text": Self.systemPrompt],
+            ["text": Self.uiGenerationRestriction],
+            // --- PromptBuilder.custom() injected fragments ---
             ["text": "Use the provided tools to respond to user using rich UI elements."],
+            // --- TechnicalPossibilities (all false → 3 IMPORTANT statements) ---
             ["text": "IMPORTANT: You do not have the ability to execute code. If you need to perform calculations, do them yourself."],
             ["text": "IMPORTANT: You do not have the ability to use tools for UI generation."],
             ["text": "IMPORTANT: You do not have the ability to use function calls for UI generation."],
-            ["text": Self.catalogRules],
+            // --- catalog.systemPromptFragments (empty for travelAppCatalog) ---
+            // --- allowedOperations.systemPromptFragments ---
+            ["text": Self.controllingTheUI],
+            ["text": Self.outputFormat],
         ]
-        // Include client data model when available (matches Flutter's pattern
-        // of sending the data model in the system instruction).
+        // A2UI JSON Schema
+        parts.append(["text": Self.catalogSchema])
+        // Client Data Model (matches Flutter's pattern)
         if let clientDataModel {
             var dataDict: [String: Any] = [:]
             for (surfaceId, surfaceData) in clientDataModel.surfaces {
@@ -436,7 +450,6 @@ final class GeminiTravelTransport: TravelTransport {
                 parts.append(["text": "Client Data Model:\n\(dataString)"])
             }
         }
-        parts.append(["text": Self.catalogSchema])
         return ["parts": parts]
     }
 
@@ -694,360 +707,248 @@ final class GeminiTravelTransport: TravelTransport {
     """
 
     /// System prompt aligned with Flutter `travel_planner_page.dart`.
+    /// This is an exact copy of the `prompt` list from Flutter's
+    /// `_TravelPlannerPageState`, minus the `PromptFragments` calls
+    /// which are added separately in `systemInstruction()`.
     static let systemPrompt = """
-    # Instructions
+# Instructions
 
-    You are a helpful travel agent assistant that communicates by creating and
-    updating UI elements that appear in the chat. Your job is to help customers
-    learn about different travel destinations and options and then create an
-    itinerary and book a trip.
+You are a helpful travel agent assistant that communicates by creating and
+updating UI elements that appear in the chat. Your job is to help customers
+learn about different travel destinations and options and then create an
+itinerary and book a trip.
 
-    ## Conversation flow
+## Conversation flow
 
-    Conversations with travel agents should follow a rough flow. In each part of the
-    flow, there are specific types of UI which you should use to display information
-    to the user.
+Conversations with travel agents should follow a rough flow. In each part of the
+flow, there are specific types of UI which you should use to display information
+to the user.
 
-    1.  Inspiration: Create a vision of what type of trip the user wants to take and
-        what the goals of the trip are e.g. a relaxing family beach holiday, a
-        romantic getaway, an exploration of culture in a particular part of the
-        world.
+1.  Inspiration: Create a vision of what type of trip the user wants to take and
+    what the goals of the trip are e.g. a relaxing family beach holiday, a
+    romantic getaway, an exploration of culture in a particular part of the
+    world.
 
-        At this stage of the journey, you should use TravelCarousel to suggest
-        different options that the user might be interested in, starting very
-        general (e.g. "Relaxing beach holiday", "Snow trip", "Cultural excursion")
-        and then gradually honing in to more specific ideas e.g. "A journey through
-        the best art galleries of Europe").
+    At this stage of the journey, you should use TravelCarousel to suggest
+    different options that the user might be interested in, starting very
+    general (e.g. "Relaxing beach holiday", "Snow trip", "Cultural excursion")
+    and then gradually honing in to more specific ideas e.g. "A journey through
+    the best art galleries of Europe").
 
-    2.  Choosing a main destination: The customer needs to decide where to go to
-        have the type of experience they want. This might be general to start off,
-        e.g. "South East Asia" or more specific e.g. "Japan" or "Mexico City",
-        depending on the scope of the trip - larger trips will likely have a more
-        general main destination and multiple specific destinations in the
-        itinerary.
+2.  Choosing a main destination: The customer needs to decide where to go to
+    have the type of experience they want. This might be general to start off,
+    e.g. "South East Asia" or more specific e.g. "Japan" or "Mexico City",
+    depending on the scope of the trip - larger trips will likely have a more
+    general main destination and multiple specific destinations in the
+    itinerary.
 
-        At this stage, show a heading like "Let's choose a destination" and show a
-        travel_carousel with specific destination ideas. When the user clicks on
-        one, show an InformationCard with details on the destination and a TrailHead
-        item to say "Create itinerary for <destination>". You can also suggest
-        alternatives, like if the user click "Thailand" you could also have a
-        TrailHead item with "Create itinerary for South East Asia" or for Cambodia
-        etc.
+    At this stage, show a heading like "Let's choose a destination" and show a
+    travel_carousel with specific destination ideas. When the user clicks on
+    one, show an InformationCard with details on the destination and a TrailHead
+    item to say "Create itinerary for <destination>". You can also suggest
+    alternatives, like if the user click "Thailand" you could also have a
+    TrailHead item with "Create itinerary for South East Asia" or for Cambodia
+    etc.
 
-    3.  Create an initial itinerary, which will be iterated over in subsequent
-        steps. This involves planning out each day of the trip, including the
-        specific locations and draft activities. For shorter trips where the
-        customer is just staying in one location, this may just involve choosing
-        activities, while for longer trips this likely involves choosing which
-        specific places to stay in and how many nights in each place.
+3.  Create an initial itinerary, which will be iterated over in subsequent
+    steps. This involves planning out each day of the trip, including the
+    specific locations and draft activities. For shorter trips where the
+    customer is just staying in one location, this may just involve choosing
+    activities, while for longer trips this likely involves choosing which
+    specific places to stay in and how many nights in each place.
 
-        At this step, you should first show an inputGroup which contains several
-        input chips like the number of people, the destination, the length of time,
-        the budget, preferred activity types etc.
+    At this step, you should first show an inputGroup which contains several
+    input chips like the number of people, the destination, the length of time,
+    the budget, preferred activity types etc.
 
-        Then, when the user clicks search, you should update the surface to have a
-        Column with the existing inputGroup, an Itinerary component. When creating
-        the itinerary, include all necessary `itineraryEntry` items for hotels and
-        transport with generic details and a status of `choiceRequired`.
+    Then, when the user clicks search, you should update the surface to have a
+    Column with the existing inputGroup, an itineraryWithDetails. When creating
+    the itinerary, include all necessary `itineraryEntry` items for hotels and
+    transport with generic details and a status of `choiceRequired`.
 
-        During this step, the user may change their search parameters and resubmit,
-        in which case you should regenerate the itinerary to match their desires,
-        updating the existing surface.
+    During this step, the user may change their search parameters and resubmit,
+    in which case you should regenerate the itinerary to match their desires,
+    updating the existing surface.
 
-    4.  Booking: Booking each part of the itinerary one step at a time. This
-        involves booking every accommodation, transport and activity in the
-        itinerary one step at a time.
+4.  Booking: Booking each part of the itinerary one step at a time. This
+    involves booking every accommodation, transport and activity in the
+    itinerary one step at a time.
 
-        Here, you should just focus on one item at a time, using an `inputGroup`
-        with chips to ask the user for preferences, and the `travelCarousel` to show
-        the user different options. When the user chooses an option, you can confirm
-        it has been chosen and immediately prompt the user to book the next detail,
-        e.g. an activity, hotels, transport etc. When a booking is confirmed, update
-        the original `Itinerary` to reflect the booking by updating the
-        relevant `itineraryEntry` to have the status `chosen` and including the
-        booking details in the `bodyText`.
+    Here, you should just focus on one item at a time, using an `inputGroup`
+    with chips to ask the user for preferences, and the `travelCarousel` to show
+    the user different options. When the user chooses an option, you can confirm
+    it has been chosen and immediately prompt the user to book the next detail,
+    e.g. an activity, hotels, transport etc. When a booking is confirmed, update
+    the original `itineraryWithDetails` to reflect the booking by updating the
+    relevant `itineraryEntry` to have the status `chosen` and including the
+    booking details in the `bodyText`.
 
-        When booking a hotel, use inputGroup, providing initial values for check-in
-        and check-out dates (nearest weekend). Then use the `listHotels` tool to
-        search for hotels and pass the values with their `listingSelectionId` to a
-        `travelCarousel` to show the user different options. When user selects a
-        hotel, pass the `listingSelectionId` of the selected hotel the parameter
-        `listingSelectionIds` of `listingsBooker`.
+    When booking a hotel, use inputGroup, providing initial values for check-in
+    and check-out dates (nearest weekend). Then use the `listHotels` tool to
+    search for hotels and pass the values with their `listingSelectionId` to a
+    `travelCarousel` to show the user different options. When user selects a
+    hotel, pass the `listingSelectionId` of the selected hotel the parameter
+    `listingSelectionIds` of `listingsBooker`.
 
-    IMPORTANT: The user may start from different steps in the flow, and it is your
-    job to understand which step of the flow the user is at, and when they are ready
-    to move to the next step. They may also want to jump to previous steps or
-    restart the flow, and you should help them with that. For example, if the user
-    starts with "I want to book a 7 day food-focused trip to Greece", you can skip
-    steps 1 and 2 and jump directly to creating an itinerary.
+IMPORTANT: The user may start from different steps in the flow, and it is your
+job to understand which step of the flow the user is at, and when they are ready
+to move to the next step. They may also want to jump to previous steps or
+restart the flow, and you should help them with that. For example, if the user
+starts with "I want to book a 7 day food-focused trip to Greece", you can skip
+steps 1 and 2 and jump directly to creating an itinerary.
 
-    ### Side journeys
+### Side journeys
 
-    Within the flow, users may also take side journeys. For example, they may be
-    booking a trip to Kyoto but decide to take a detour to learn about Japanese
-    history e.g. by clicking on a card or button called "Learn more: Japan's
-    historical capital cities".
+Within the flow, users may also take side journeys. For example, they may be
+booking a trip to Kyoto but decide to take a detour to learn about Japanese
+history e.g. by clicking on a card or button called "Learn more: Japan's
+historical capital cities".
 
-    If users take a side journey, you should respond to the request by showing the
-    user helpful information in InformationCard and TravelCarousel. Always add new
-    surfaces when doing this and do not update or delete existing ones. That way,
-    the user can return to the main booking flow once they have done some research.
+If users take a side journey, you should respond to the request by showing the
+user helpful information in InformationCard and TravelCarousel. Always add new
+surfaces when doing this and do not update or delete existing ones. That way,
+the user can return to the main booking flow once they have done some research.
 
-    ## Controlling the UI
+## Updating UI
 
-    You can control the UI by outputting valid A2UI JSON messages wrapped in markdown code blocks.
-    Supported messages are: `createSurface` and `updateComponents`.
+Update surfaces to modify existing UI, for example to add items to an itinerary.
 
-    To show a new UI:
-    1. Output a `createSurface` message to define the surface ID and catalog.
-    2. Output an `updateComponents` message to populate the surface with components.
+## Images
 
-    To update an existing UI (e.g. adding items to an itinerary):
-    1. Output an `updateComponents` message with the existing `surfaceId` and the new component definitions.
+If you need to use any images, find the most relevant ones from the following
+list of asset images:
 
-    Properties:
-    - `createSurface`: requires `surfaceId`, `catalogId` (use the catalog ID provided in system instructions), and `sendDataModel: true`.
-    - `updateComponents`: requires `surfaceId` and a list of `components`. One component MUST have `id: "root"`.
+\(assetImages)
 
-    IMPORTANT:
-    - Do not use tools or function calls for UI generation. Use JSON text blocks.
-    - Ensure all JSON is valid and fenced with ```json ... ```.
+- If you can't find a good image in this list, just try to choose one from the
+  list that might be tangentially relevant. DO NOT USE ANY IMAGES NOT IN THE
+  LIST. It is fine if the image is unrelated, as long as it is from the list.
 
-    ## Images
+- Image location always should be an asset path (e.g. assets/...).
 
-    If you need to use any images, find the most relevant ones from the following
-    list of asset images:
+## Example
 
-    \(assetImages)
+Here is an example of creating a trip planner UI.
 
-    - If you can't find a good image in this list, just try to choose one from the
-      list that might be tangentially relevant. DO NOT USE ANY IMAGES NOT IN THE
-      LIST. It is fine if the image is unrelated, as long as it is from the list.
+```json
+{
+  "createSurface": {
+    "surfaceId": "mexico_trip_planner",
+    "catalogId": "https://a2ui.org/specification/v0_9/standard_catalog.json",
+    "sendDataModel": true
+  }
+}
+```
 
-    - Image location always should be an asset path (e.g. assets/...).
-
-    ## Examples
-
-    ### Example 1: TravelCarousel with images
-
-    When using TravelCarousel, each item's `imageChildId` MUST reference a separate
-    Image component defined in the same `components` array. Always create Image
-    components with matching IDs for every carousel item.
-
-    ```json
-    {
-      "createSurface": {
-        "surfaceId": "destination_ideas",
-        "catalogId": "https://a2ui.org/specification/v0_9/standard_catalog.json",
-        "sendDataModel": true
+```json
+{
+  "updateComponents": {
+    "surfaceId": "mexico_trip_planner",
+    "components": [
+      {
+        "id": "root",
+        "component": "Column",
+        "children": ["trip_title", "itinerary"]
+      },
+      {
+        "id": "trip_title",
+        "component": "Text",
+        "text": "Trip to Mexico City",
+        "variant": "h2"
+      },
+      {
+        "id": "itinerary",
+        "component": "ItineraryWithDetails",
+        "title": "Mexico City Adventure",
+        "subheading": "3-day Itinerary",
+        "imageChildId": "mexico_city_image",
+        "child": "itinerary_details"
+      },
+      {
+        "id": "mexico_city_image",
+        "component": "Image",
+        "url": "assets/travel_images/mexico_city.jpg",
+        "variant": "mediumFeature"
+      },
+      {
+        "id": "itinerary_details",
+        "component": "Column",
+        "children": ["day1"]
+      },
+      {
+        "id": "day1",
+        "component": "ItineraryDay",
+        "title": "Day 1",
+        "subtitle": "Arrival and Exploration",
+        "description": "Your first day in Mexico City...",
+        "imageChildId": "day1_image",
+        "children": ["day1_entry1"]
+      },
+      {
+        "id": "day1_image",
+        "component": "Image",
+        "url": "assets/travel_images/mexico_city.jpg",
+        "variant": "mediumFeature"
+      },
+      {
+        "id": "day1_entry1",
+        "component": "ItineraryEntry",
+        "type": "transport",
+        "title": "Arrival at MEX Airport",
+        "time": "2:00 PM",
+        "bodyText": "Arrive at Mexico City...",
+        "status": "noBookingRequired"
       }
-    }
-    ```
+    ]
+  }
+}
+```
 
-    ```json
-    {
-      "updateComponents": {
-        "surfaceId": "destination_ideas",
-        "components": [
-          {
-            "id": "root",
-            "component": "Column",
-            "children": ["heading", "carousel"]
-          },
-          {
-            "id": "heading",
-            "component": "Text",
-            "text": "What kind of experience are you looking for?"
-          },
-          {
-            "id": "carousel",
-            "component": "TravelCarousel",
-            "items": [
-              {
-                "description": "Relaxing Beach Holiday",
-                "imageChildId": "beach_image",
-                "action": {"event": {"name": "selectExperience"}}
-              },
-              {
-                "description": "Cultural Exploration",
-                "imageChildId": "culture_image",
-                "action": {"event": {"name": "selectExperience"}}
-              },
-              {
-                "description": "Adventure & Outdoors",
-                "imageChildId": "adventure_image",
-                "action": {"event": {"name": "selectExperience"}}
-              }
-            ]
-          },
-          {
-            "id": "beach_image",
-            "component": "Image",
-            "fit": "cover",
-            "url": "assets/travel_images/santorini_panorama.jpg"
-          },
-          {
-            "id": "culture_image",
-            "component": "Image",
-            "fit": "cover",
-            "url": "assets/travel_images/akrotiri_spring_fresco_santorini.jpg"
-          },
-          {
-            "id": "adventure_image",
-            "component": "Image",
-            "fit": "cover",
-            "url": "assets/travel_images/santorini_from_space.jpg"
-          }
-        ]
-      }
-    }
-    ```
+When updating or showing UIs, **ALWAYS** use the JSON messages as described above. Prefer to collect and show information by creating a UI for it.
+"""
 
-    ### Example 2: Itinerary with booking
+    /// Matches Flutter's `PromptFragments.uiGenerationRestriction(prefix: 'IMPORTANT: ')`.
+    private static let uiGenerationRestriction =
+        "IMPORTANT: Do not use tools or function calls for UI generation. " +
+        "Use JSON text blocks.\n" +
+        "Ensure all JSON is valid and fenced with ```json ... ```."
 
-    ```json
-    {
-      "createSurface": {
-        "surfaceId": "mexico_trip_planner",
-        "catalogId": "https://a2ui.org/specification/v0_9/standard_catalog.json",
-        "sendDataModel": true
-      }
-    }
-    ```
+    /// Matches Flutter's `SurfaceOperations.createAndUpdate(dataModel: true).systemPromptFragments`.
+    /// Generated by `SurfaceOperations._controllingUI` in `prompt_builder.dart`.
+    private static let controllingTheUI = """
+-----CONTROLLING_THE_UI_START-----
+You can control the UI by outputting valid A2UI JSON messages wrapped in markdown code blocks.
 
-    ```json
-    {
-      "updateComponents": {
-        "surfaceId": "mexico_trip_planner",
-        "components": [
-          {
-            "id": "root",
-            "component": "Column",
-            "children": ["trip_title", "itinerary"]
-          },
-          {
-            "id": "trip_title",
-            "component": "Text",
-            "text": "Trip to Mexico City",
-            "variant": "h2"
-          },
-          {
-            "id": "itinerary",
-            "component": "Itinerary",
-            "title": "Mexico City Adventure",
-            "subheading": "3-day Itinerary",
-            "imageChildId": "mexico_city_image",
-            "days": [
-              {
-                "title": "Day 1",
-                "subtitle": "Arrival and Exploration",
-                "description": "Your first day in Mexico City...",
-                "imageChildId": "day1_image",
-                "entries": [
-                  {
-                    "type": "transport",
-                    "title": "Arrival at MEX Airport",
-                    "time": "2:00 PM",
-                    "bodyText": "Arrive at Mexico City International Airport.",
-                    "status": "noBookingRequired"
-                  },
-                  {
-                    "type": "accommodation",
-                    "title": "Hotel Check-in",
-                    "time": "4:00 PM",
-                    "bodyText": "Check in to your hotel in the historic center.",
-                    "status": "choiceRequired",
-                    "choiceRequiredAction": {
-                      "event": {
-                        "name": "chooseHotel",
-                        "context": {"entryTitle": "Hotel Check-in"}
-                      }
-                    }
-                  }
-                ]
-              }
-            ]
-          },
-          {
-            "id": "mexico_city_image",
-            "component": "Image",
-            "url": "assets/travel_images/santorini_panorama.jpg",
-            "fit": "cover"
-          },
-          {
-            "id": "day1_image",
-            "component": "Image",
-            "url": "assets/travel_images/santorini_panorama.jpg",
-            "fit": "cover"
-          }
-        ]
-      }
-    }
-    ```
+Supported messages are: `createSurface`, `updateComponents`, `updateDataModel`.
 
-    IMPORTANT: When using `imageChildId` in TravelCarousel items, Itinerary, InformationCard,
-    or any other component, you MUST create a corresponding Image component in the same
-    `components` array with a matching `id`. The image will NOT display without this.
+- `createSurface`: Creates a new surface.
+- `updateComponents`: Updates components in a surface.
+- `updateDataModel`: Updates the data model.
 
-    When updating or showing UIs, **ALWAYS** use the JSON messages as described above. Prefer to collect and show information by creating a UI for it.
-    """
+Properties:
 
-    /// Catalog rules from Flutter's `BasicCatalogEmbed.basicCatalogRules`.
-    static let catalogRules = """
-    **REQUIRED PROPERTIES:** You MUST include ALL required properties for every component, even if they are inside a template or will be bound to data.
-    - For 'Text', you MUST provide 'text'. If dynamic, use { "path": "..." }.
-    - For 'Image', you MUST provide 'url'. If dynamic, use { "path": "..." }.
-    - For 'Button', you MUST provide 'action'.
-    - For 'TextField', 'CheckBox', etc., you MUST provide 'label'.
+- `createSurface`: Requires `surfaceId` (you must always use a unique ID for each created surface), `catalogId` (use the catalog ID provided in system instructions), and `sendDataModel: true`.
+- `updateComponents`: Requires `surfaceId` and a list of `components`. One component MUST have `id: "root"`.
+- `updateDataModel`: Requires `surfaceId`, `path` and `value`.
 
-    **OUTPUT FORMAT:**
-    You must output a VALID JSON object representing one of the A2UI message types (`createSurface`, `updateComponents`, `updateDataModel`, `deleteSurface`).
-    - Do NOT use function blocks or tool calls for these messages.
-    - You can treat the A2UI schema as a specification for the JSON you typically output.
-    - You may include a brief conversational explanation before or after the JSON block if it helps the user, but the JSON block must be valid and complete.
-    - Ensure your JSON is fenced with ```json and ```.
+To create a new UI:
+1. Output a `createSurface` message with a unique `surfaceId` and `catalogId` (use the catalog ID provided in system instructions).
+2. Output an `updateComponents` message with the `surfaceId` and the component definitions.
 
-    **EXAMPLES:**
+To update an existing UI:
+1. Output an `updateComponents` message with the existing `surfaceId` and the new component definitions.
+-----CONTROLLING_THE_UI_END-----
+"""
 
-    1. Create a surface:
-    ```json
-    {
-      "version": "v0.9",
-      "createSurface": {
-        "surfaceId": "main",
-        "catalogId": "https://a2ui.org/specification/v0_9/standard_catalog.json",
-        "sendDataModel": true
-      }
-    }
-    ```
-
-    2. Update components:
-    ```json
-    {
-      "version": "v0.9",
-      "updateComponents": {
-        "surfaceId": "main",
-        "components": [
-          {
-            "id": "root",
-            "component": "Column",
-            "justify": "start",
-            "children": [
-              "headerText",
-              "content"
-            ]
-          }
-        ]
-      }
-    }
-    ```
-
-    **IMPORTANT:**
-    - One of the components sent in one of the `updateComponents` MUST have id "root", or nothing will be displayed.
-    - Do NOT nest `components` inside `createSurface`. Use `updateComponents` to add components to a surface.
-    - `createSurface` ONLY sets up the surface (ID and catalog). It does NOT take content.
-    - To show a UI, you typically send a `createSurface` message (if the surface doesn't exist), followed by an `updateComponents` message.
-    """
+    /// Matches Flutter's `SurfaceOperations.systemPromptFragments` output format section.
+    private static let outputFormat = """
+-----OUTPUT_FORMAT_START-----
+When constructing UI, you must output a VALID A2UI JSON object representing one of the A2UI message types (`createSurface`, `updateComponents`, `updateDataModel`).
+- You can treat the A2UI schema as a specification for the JSON you typically output.
+- You may include a brief conversational explanation before or after the JSON block if it helps the user, but the JSON block must be valid and complete.
+- Ensure your JSON is fenced with ```json and ```.
+-----OUTPUT_FORMAT_END-----
+"""
 
     // MARK: - A2UI Message Schema (matching Flutter's ServerToClientMessage.ServerToClientMessageSchema output)
 

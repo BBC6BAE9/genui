@@ -32,7 +32,7 @@ struct A2UICustom: View {
                let customView = renderer(typeName, node, node.children, surface) {
                 customView
             } else {
-                VStack(alignment: .leading, spacing: 8) {
+                VStack(alignment: .leading, spacing: 0) {
                     ForEach(node.children) { child in
                         A2UIComponentView(node: child, surface: surface)
                     }

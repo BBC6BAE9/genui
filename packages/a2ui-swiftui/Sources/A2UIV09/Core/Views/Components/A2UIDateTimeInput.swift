@@ -93,6 +93,7 @@ struct A2UIDateTimeInput: View {
                 }
             }
             .a2uiAccessibility(node.accessibility, dataContext: dc)
+            .padding(style.leafMargin)
         }
     }
 }

@@ -22,6 +22,8 @@ struct A2UIDivider: View {
     let node: ComponentNode
     let surface: SurfaceModel
 
+    @Environment(\.a2uiStyle) private var style
+
     var body: some View {
         // Intentionally ignored: spec defines `axis` ("horizontal"/"vertical"), but SwiftUI's
         // Divider auto-adapts orientation based on parent (horizontal in VStack, vertical in HStack).
@@ -30,5 +32,6 @@ struct A2UIDivider: View {
         let dc = DataContext(surface: surface, path: node.dataContextPath)
         SwiftUI.Divider()
             .a2uiAccessibility(node.accessibility, dataContext: dc)
+            .padding(style.leafMargin)
     }
 }
