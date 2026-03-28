@@ -50,7 +50,9 @@ private struct SurfaceListView: View {
                let rootNode = vm.componentTree {
                 A2UIComponentView(node: rootNode, surface: vm.surface)
                     .environment(\.a2uiActionHandler) { action in
-                        viewModel.handleAction(action, surfaceId: surfaceId)
+                        Task { @MainActor in
+                            viewModel.handleAction(action, surfaceId: surfaceId)
+                        }
                     }
                     .a2uiCustomComponentsV09(travelCustomRenderer)
                     .a2uiImageResolver { urlString in
@@ -94,7 +96,7 @@ struct UserMessageBubble: View {
             .shadow(color: .black.opacity(0.1), radius: 2, x: 0, y: 1)
         }
         .padding(.vertical, 4)
-        .padding(.horizontal, 8)
+        .padding(.horizontal)
     }
 }
 
@@ -127,7 +129,7 @@ struct ModelMessageBubble: View {
             Spacer(minLength: 60)
         }
         .padding(.vertical, 4)
-        .padding(.horizontal, 8)
+        .padding(.horizontal)
     }
 }
 

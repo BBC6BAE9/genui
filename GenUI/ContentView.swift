@@ -35,6 +35,13 @@ struct ContentView: View {
             .navigationBarTitleDisplayMode(.inline)
             #endif
             .toolbar {
+                ToolbarItem(placement: .topBarLeading) {
+                    Button {
+                        // No action
+                    } label: {
+                        Image(systemName: "line.3.horizontal.decrease")
+                    }
+                }
                 ToolbarItem() {
                     HStack(spacing: 12) {
                         Button {

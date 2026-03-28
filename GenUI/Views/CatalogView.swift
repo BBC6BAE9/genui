@@ -84,12 +84,12 @@ struct CatalogView: View {
 
     // MARK: - All Catalog Items (matching Flutter's travelAppCatalog)
 
-    private struct CatalogItemDef: Sendable {
+    private struct CatalogItemDef {
         let name: String
-        let examples: [@Sendable () -> [[String: Any]]]
+        let examples: [@MainActor () -> [[String: Any]]]
     }
 
-    nonisolated private static var allCatalogItems: [CatalogItemDef] {
+    @MainActor private static var allCatalogItems: [CatalogItemDef] {
         [
             // Basic components (from genui standard catalog)
             CatalogItemDef(name: "Button", examples: [buttonExample0, buttonExample1]),
@@ -114,7 +114,7 @@ struct CatalogView: View {
 
     // MARK: - Basic Component Examples
 
-    nonisolated private static func buttonExample0() -> [[String: Any]] {
+    private static func buttonExample0() -> [[String: Any]] {
         [
             ["id": "root", "component": "Button",
              "child": "text",
@@ -123,7 +123,7 @@ struct CatalogView: View {
         ]
     }
 
-    nonisolated private static func buttonExample1() -> [[String: Any]] {
+    private static func buttonExample1() -> [[String: Any]] {
         [
             ["id": "root", "component": "Column",
              "children": ["primaryButton", "secondaryButton"]],
@@ -139,7 +139,7 @@ struct CatalogView: View {
         ]
     }
 
-    nonisolated private static func columnExample() -> [[String: Any]] {
+    private static func columnExample() -> [[String: Any]] {
         [
             ["id": "root", "component": "Column",
              "children": ["advice_text", "advice_options", "submit_button"]],
@@ -154,7 +154,7 @@ struct CatalogView: View {
         ]
     }
 
-    nonisolated private static func textExample() -> [[String: Any]] {
+    private static func textExample() -> [[String: Any]] {
         [
             ["id": "root", "component": "Text",
              "text": "Hello World",
@@ -162,7 +162,7 @@ struct CatalogView: View {
         ]
     }
 
-    nonisolated private static func imageExample() -> [[String: Any]] {
+    private static func imageExample() -> [[String: Any]] {
         [
             ["id": "root", "component": "Image",
              "url": "https://developer.apple.com/assets/elements/icons/swiftui/swiftui-256x256_2x.png"]
@@ -171,7 +171,7 @@ struct CatalogView: View {
 
     // MARK: - Custom Component Examples (matching Flutter catalog exampleData)
 
-    nonisolated private static func checkboxFilterChipsExample() -> [[String: Any]] {
+    private static func checkboxFilterChipsExample() -> [[String: Any]] {
         [
             ["id": "root", "component": TravelComponentNames.checkboxFilterChipsInput,
              "chipLabel": "Amenities",
@@ -180,7 +180,7 @@ struct CatalogView: View {
         ]
     }
 
-    nonisolated private static func dateInputChipExample() -> [[String: Any]] {
+    private static func dateInputChipExample() -> [[String: Any]] {
         [
             ["id": "root", "component": TravelComponentNames.dateInputChip,
              "value": "1871-07-22",
@@ -188,7 +188,7 @@ struct CatalogView: View {
         ]
     }
 
-    nonisolated private static func informationCardExample() -> [[String: Any]] {
+    private static func informationCardExample() -> [[String: Any]] {
         [
             ["id": "root", "component": TravelComponentNames.informationCard,
              "title": "Beautiful Scenery",
@@ -199,7 +199,7 @@ struct CatalogView: View {
         ]
     }
 
-    nonisolated private static func inputGroupExample() -> [[String: Any]] {
+    private static func inputGroupExample() -> [[String: Any]] {
         [
             ["id": "root", "component": TravelComponentNames.inputGroup,
              "submitLabel": "Submit",
@@ -216,7 +216,7 @@ struct CatalogView: View {
         ]
     }
 
-    nonisolated private static func itineraryExample() -> [[String: Any]] {
+    private static func itineraryExample() -> [[String: Any]] {
         [
             ["id": "root", "component": TravelComponentNames.itinerary,
              "title": "My Awesome Trip",
@@ -240,7 +240,7 @@ struct CatalogView: View {
         ]
     }
 
-    nonisolated private static func listingsBookerExample() -> [[String: Any]] {
+    private static func listingsBookerExample() -> [[String: Any]] {
         let selectionIds = MockData.hotelListings.prefix(2).map(\.listingSelectionId)
         return [
             ["id": "root", "component": TravelComponentNames.listingsBooker,
@@ -249,7 +249,7 @@ struct CatalogView: View {
         ]
     }
 
-    nonisolated private static func optionsFilterChipExample() -> [[String: Any]] {
+    private static func optionsFilterChipExample() -> [[String: Any]] {
         [
             ["id": "root", "component": TravelComponentNames.optionsFilterChipInput,
              "chipLabel": "Budget",
@@ -258,7 +258,7 @@ struct CatalogView: View {
         ]
     }
 
-    nonisolated private static func tabbedSectionsExample() -> [[String: Any]] {
+    private static func tabbedSectionsExample() -> [[String: Any]] {
         [
             ["id": "root", "component": TravelComponentNames.tabbedSections,
              "sections": [
@@ -272,7 +272,7 @@ struct CatalogView: View {
         ]
     }
 
-    nonisolated private static func textInputChipExample0() -> [[String: Any]] {
+    private static func textInputChipExample0() -> [[String: Any]] {
         [
             ["id": "root", "component": TravelComponentNames.textInputChip,
              "value": "John Doe",
@@ -280,7 +280,7 @@ struct CatalogView: View {
         ]
     }
 
-    nonisolated private static func textInputChipExample1() -> [[String: Any]] {
+    private static func textInputChipExample1() -> [[String: Any]] {
         [
             ["id": "root", "component": TravelComponentNames.textInputChip,
              "label": "Enter your password",
@@ -288,7 +288,7 @@ struct CatalogView: View {
         ]
     }
 
-    nonisolated private static func trailheadExample() -> [[String: Any]] {
+    private static func trailheadExample() -> [[String: Any]] {
         [
             ["id": "root", "component": TravelComponentNames.trailhead,
              "topics": ["Topic 1", "Topic 2", "Topic 3"],
@@ -296,7 +296,7 @@ struct CatalogView: View {
         ]
     }
 
-    nonisolated private static func travelCarouselInspirationExample() -> [[String: Any]] {
+    private static func travelCarouselInspirationExample() -> [[String: Any]] {
         [
             ["id": "root", "component": "Column",
              "children": ["inspiration_title", "inspiration_carousel"]],
@@ -327,7 +327,7 @@ struct CatalogView: View {
         ]
     }
 
-    nonisolated private static func travelCarouselHotelExample() -> [[String: Any]] {
+    private static func travelCarouselHotelExample() -> [[String: Any]] {
         let hotels = MockData.hotelListings
         let hotel1 = hotels[0]
         let hotel2 = hotels.count > 1 ? hotels[1] : hotel1
