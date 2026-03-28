@@ -21,7 +21,7 @@ final class GeminiTravelTransport: TravelTransport {
     /// Typed conversation history using `GenAIPrimitives.ChatMessage`.
     ///
     /// Replaces the previous `[[String: Any]]` representation. Serialization to
-    /// Gemini REST JSON format is handled by `GeminiContentConverter`.
+    /// Gemini REST JSON format is handled by `GoogleContentConverter`.
     private var conversationHistory: [GenAIPrimitives.ChatMessage] = []
 
     /// Client data model set by the ViewModel before actions, matching Flutter's
@@ -136,9 +136,9 @@ final class GeminiTravelTransport: TravelTransport {
             do {
                 let url = URL(string: "https://generativelanguage.googleapis.com/v1beta/models/\(model):streamGenerateContent?key=\(apiKey)&alt=sse")!
                 let requestBody: [String: Any] = [
-                    "contents": GeminiContentConverter.toGeminiContents(conversationHistory),
+                    "contents": GoogleContentConverter.toGeminiContents(conversationHistory),
                     "system_instruction": systemInstruction(),
-                    "tools": GeminiContentConverter.toGeminiTools(toolDefinitions),
+                    "tools": GoogleContentConverter.toGeminiTools(toolDefinitions),
                     "toolConfig": ["functionCallingConfig": ["mode": "AUTO"]],
                     "generationConfig": Self.generationConfig
                 ]
@@ -165,7 +165,7 @@ final class GeminiTravelTransport: TravelTransport {
                           let data = jsonStr.data(using: .utf8),
                           let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any] else { continue }
 
-                    let (_, calls, textParts, finishReason) = GeminiContentConverter.extractResponseParts(from: json)
+                    let (_, calls, textParts, finishReason) = GoogleContentConverter.extractResponseParts(from: json)
                     accumulatedToolCalls.append(contentsOf: calls)
 
                     if finishReason == "MAX_TOKENS" {
@@ -233,9 +233,9 @@ final class GeminiTravelTransport: TravelTransport {
         let url = URL(string: "https://generativelanguage.googleapis.com/v1beta/models/\(model):generateContent?key=\(apiKey)")!
 
         let requestBody: [String: Any] = [
-            "contents": GeminiContentConverter.toGeminiContents(conversationHistory),
+            "contents": GoogleContentConverter.toGeminiContents(conversationHistory),
             "system_instruction": systemInstruction(),
-            "tools": GeminiContentConverter.toGeminiTools(toolDefinitions),
+            "tools": GoogleContentConverter.toGeminiTools(toolDefinitions),
             "toolConfig": ["functionCallingConfig": ["mode": "AUTO"]],
             "generationConfig": Self.generationConfig
         ]
@@ -249,7 +249,7 @@ final class GeminiTravelTransport: TravelTransport {
         var request = URLRequest(url: url)
         request.httpMethod = "POST"
         request.setValue("application/json", forHTTPHeaderField: "Content-Type")
-        request.timeoutInterval = 180 // Gemini thinking models can take a while
+        request.timeoutInterval = 300
         request.httpBody = try JSONSerialization.data(withJSONObject: body)
 
         print("[GeminiTransport] Calling Gemini API...")
@@ -281,7 +281,7 @@ final class GeminiTravelTransport: TravelTransport {
         let maxToolCycles = 40
 
         while toolCycles < maxToolCycles {
-            let (modelMessage, toolCalls, textParts, finishReason) = GeminiContentConverter.extractResponseParts(from: currentJson)
+            let (modelMessage, toolCalls, textParts, finishReason) = GoogleContentConverter.extractResponseParts(from: currentJson)
 
             if finishReason == "MAX_TOKENS" {
                 print("[GeminiTransport] ⚠️ Response truncated (MAX_TOKENS) — output may be incomplete")
@@ -339,9 +339,9 @@ final class GeminiTravelTransport: TravelTransport {
             conversationHistory.append(GenAIPrimitives.ChatMessage(role: .user, parts: toolResultParts))
 
             let nextRequestBody: [String: Any] = [
-                "contents": GeminiContentConverter.toGeminiContents(conversationHistory),
+                "contents": GoogleContentConverter.toGeminiContents(conversationHistory),
                 "system_instruction": systemInstruction(),
-                "tools": GeminiContentConverter.toGeminiTools(toolDefinitions),
+                "tools": GoogleContentConverter.toGeminiTools(toolDefinitions),
                 "toolConfig": ["functionCallingConfig": ["mode": "AUTO"]],
                 "generationConfig": Self.generationConfig
             ]
@@ -357,7 +357,7 @@ final class GeminiTravelTransport: TravelTransport {
     ///
     /// Stored as a `let` constant — the set of tools never changes during the
     /// lifetime of the transport. Serialization to Gemini `functionDeclarations`
-    /// format is done by `GeminiContentConverter.toGeminiTools(_:)`.
+    /// format is done by `GoogleContentConverter.toGeminiTools(_:)`.
     ///
     /// Matches the Flutter `ListHotelsTool` schema in `list_hotels_tool.dart`.
     private let toolDefinitions: [ToolDefinition] = [

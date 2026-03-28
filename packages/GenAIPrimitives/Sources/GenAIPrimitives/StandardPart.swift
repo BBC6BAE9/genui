@@ -411,6 +411,12 @@ public struct ToolPartContent: Hashable, Sendable {
     /// The result of a tool execution (nil for calls).
     public let result: JSONValue?
 
+    /// Opaque thought signature returned by Gemini thinking models.
+    ///
+    /// Must be preserved and sent back in conversation history for
+    /// function call parts; required by Gemini 3 models.
+    public let thoughtSignature: String?
+
     /// The arguments as a JSON string.
     public var argumentsRaw: String {
         guard let arguments = arguments else { return "" }
@@ -428,18 +434,28 @@ public struct ToolPartContent: Hashable, Sendable {
     public static func call(
         callId: String,
         toolName: String,
-        arguments: [String: JSONValue]
+        arguments: [String: JSONValue],
+        thoughtSignature: String? = nil
     ) -> ToolPartContent {
-        ToolPartContent(kind: .call, callId: callId, toolName: toolName, arguments: arguments, result: nil)
+        ToolPartContent(
+            kind: .call, callId: callId, toolName: toolName,
+            arguments: arguments, result: nil,
+            thoughtSignature: thoughtSignature
+        )
     }
 
     /// Creates a tool result content.
     public static func result(
         callId: String,
         toolName: String,
-        result: JSONValue?
+        result: JSONValue?,
+        thoughtSignature: String? = nil
     ) -> ToolPartContent {
-        ToolPartContent(kind: .result, callId: callId, toolName: toolName, arguments: nil, result: result)
+        ToolPartContent(
+            kind: .result, callId: callId, toolName: toolName,
+            arguments: nil, result: result,
+            thoughtSignature: thoughtSignature
+        )
     }
 }
 
@@ -462,18 +478,26 @@ public enum ToolPart {
     public static func call(
         callId: String,
         toolName: String,
-        arguments: [String: JSONValue]
+        arguments: [String: JSONValue],
+        thoughtSignature: String? = nil
     ) -> StandardPart {
-        .tool(.call(callId: callId, toolName: toolName, arguments: arguments))
+        .tool(.call(
+            callId: callId, toolName: toolName,
+            arguments: arguments, thoughtSignature: thoughtSignature
+        ))
     }
 
     /// Creates a tool result StandardPart.
     public static func result(
         callId: String,
         toolName: String,
-        result: JSONValue?
+        result: JSONValue?,
+        thoughtSignature: String? = nil
     ) -> StandardPart {
-        .tool(.result(callId: callId, toolName: toolName, result: result))
+        .tool(.result(
+            callId: callId, toolName: toolName,
+            result: result, thoughtSignature: thoughtSignature
+        ))
     }
 
     static func toJson(_ content: ToolPartContent) -> [String: Any?] {

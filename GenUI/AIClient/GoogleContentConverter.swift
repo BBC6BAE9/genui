@@ -5,17 +5,29 @@
 import Foundation
 import GenAIPrimitives
 
-// MARK: - GeminiContentConverter
+// MARK: - GoogleContentConverter
 
-/// Adapts `GenAIPrimitives` types to the Gemini REST API JSON format.
+/// An exception thrown by this package.
 ///
-/// Mirrors Flutter's `google_content_converter.dart` + `google_schema_adapter.dart`
-/// pattern: a separate adapter layer isolates all Gemini-specific serialization
-/// from the transport and model layers.
+/// Mirrors Flutter's `GoogleAiClientException` from
+/// `ai_client/google_content_converter.dart`.
+struct GoogleAiClientException: Error, CustomStringConvertible {
+    let message: String
+
+    var description: String {
+        "GoogleAiClientException: \(message)"
+    }
+}
+
+/// Converts between `GenAIPrimitives.ChatMessage` and the Gemini REST API
+/// JSON format.
+///
+/// Mirrors Flutter's `GoogleContentConverter` from
+/// `ai_client/google_content_converter.dart`.
 ///
 /// Gemini REST API reference:
 /// https://ai.google.dev/api/generate-content
-enum GeminiContentConverter {
+enum GoogleContentConverter {
 
     // MARK: - ChatMessage → Gemini contents
 
@@ -39,7 +51,6 @@ enum GeminiContentConverter {
         case .model:
             role = "model"
         case .system:
-            // System messages are handled via system_instruction, not contents.
             return nil
         }
 
@@ -70,6 +81,10 @@ enum GeminiContentConverter {
             return toGeminiToolPart(content)
 
         case .data(let content):
+            if content.mimeType == "application/vnd.genui.interaction+json" {
+                let text = String(data: content.bytes, encoding: .utf8) ?? ""
+                return ["text": text]
+            }
             let base64 = content.bytes.base64EncodedString()
             return [
                 "inlineData": [
@@ -95,12 +110,16 @@ enum GeminiContentConverter {
         switch content.kind {
         case .call:
             let args: [String: Any] = (content.arguments ?? [:]).compactMapValues { $0.anyValue }
-            return [
+            var part: [String: Any] = [
                 "functionCall": [
                     "name": content.toolName,
                     "args": args,
                 ] as [String: Any],
             ]
+            if let sig = content.thoughtSignature {
+                part["thoughtSignature"] = sig
+            }
+            return part
 
         case .result:
             let response: Any
@@ -116,89 +135,6 @@ enum GeminiContentConverter {
                 ] as [String: Any],
             ]
         }
-    }
-
-    // MARK: - ToolDefinition → Gemini functionDeclarations
-
-    /// Converts an array of `ToolDefinition` to the Gemini `tools` array format.
-    ///
-    /// Gemini expects: `[{"functionDeclarations": [...]}]`
-    static func toGeminiTools(_ tools: [ToolDefinition]) -> [[String: Any]] {
-        guard !tools.isEmpty else { return [] }
-        let declarations = tools.map { toGeminiFunctionDeclaration($0) }
-        return [["functionDeclarations": declarations]]
-    }
-
-    /// Converts a `ToolDefinition` to a Gemini function declaration dictionary.
-    ///
-    /// The `inputSchema` (JSON Schema format) is adapted to Gemini's `parameters`
-    /// field, which uses uppercase type names (e.g. `"OBJECT"` instead of
-    /// `"object"`).
-    static func toGeminiFunctionDeclaration(_ tool: ToolDefinition) -> [String: Any] {
-        var declaration: [String: Any] = [
-            "name": tool.name,
-            "description": tool.description,
-        ]
-        let parameters = adaptSchemaToGemini(tool.inputSchema)
-        if !parameters.isEmpty {
-            declaration["parameters"] = parameters
-        }
-        return declaration
-    }
-
-    // MARK: - JSON Schema → Gemini Schema adaptation
-
-    /// Adapts a JSON Schema dictionary to Gemini's schema format.
-    ///
-    /// Key difference: Gemini uses uppercase type names (`"OBJECT"`, `"STRING"`,
-    /// `"INTEGER"`, etc.) while JSON Schema uses lowercase.
-    ///
-    /// Mirrors Flutter's `google_schema_adapter.dart`.
-    static func adaptSchemaToGemini(_ schema: [String: Any]) -> [String: Any] {
-        var result: [String: Any] = [:]
-
-        // Convert type to uppercase
-        if let type_ = schema["type"] as? String {
-            result["type"] = type_.uppercased()
-        }
-
-        // Pass through description
-        if let description = schema["description"] as? String {
-            result["description"] = description
-        }
-
-        // Pass through enum values
-        if let enumValues = schema["enum"] {
-            result["enum"] = enumValues
-        }
-
-        // Pass through format (e.g. "date")
-        if let format = schema["format"] as? String {
-            result["format"] = format
-        }
-
-        // Recursively adapt properties
-        if let properties = schema["properties"] as? [String: Any] {
-            var adaptedProps: [String: Any] = [:]
-            for (key, value) in properties {
-                if let propSchema = value as? [String: Any] {
-                    adaptedProps[key] = adaptSchemaToGemini(propSchema)
-                }
-            }
-            result["properties"] = adaptedProps
-        }
-
-        // Pass through required fields
-        if let required = schema["required"] {
-            result["required"] = required
-        }
-
-        // Recursively adapt array items
-        if let items = schema["items"] as? [String: Any] {
-            result["items"] = adaptSchemaToGemini(items)
-        }
-
-        return result
     }
 
     // MARK: - Gemini response → ChatMessage
@@ -224,8 +160,11 @@ enum GeminiContentConverter {
                     args[k] = jv
                 }
             }
-            // Use function name as callId since Gemini REST doesn't provide one
-            return ToolPart.call(callId: name, toolName: name, arguments: args)
+            let thoughtSig = partJson["thoughtSignature"] as? String
+            return ToolPart.call(
+                callId: name, toolName: name,
+                arguments: args, thoughtSignature: thoughtSig
+            )
         }
 
         if let functionResponse = partJson["functionResponse"] as? [String: Any] {
@@ -249,6 +188,32 @@ enum GeminiContentConverter {
         }
 
         return nil
+    }
+
+    // MARK: - ToolDefinition → Gemini functionDeclarations
+
+    /// Converts an array of `ToolDefinition` to the Gemini `tools` array format.
+    ///
+    /// Gemini expects: `[{"functionDeclarations": [...]}]`.
+    /// Schema adaptation is delegated to ``GoogleSchemaAdapter``.
+    static func toGeminiTools(_ tools: [ToolDefinition]) -> [[String: Any]] {
+        guard !tools.isEmpty else { return [] }
+        let declarations = tools.map { toGeminiFunctionDeclaration($0) }
+        return [["functionDeclarations": declarations]]
+    }
+
+    /// Converts a `ToolDefinition` to a Gemini function declaration dictionary.
+    static func toGeminiFunctionDeclaration(_ tool: ToolDefinition) -> [String: Any] {
+        var declaration: [String: Any] = [
+            "name": tool.name,
+            "description": tool.description,
+        ]
+        let adapter = GoogleSchemaAdapter()
+        let result = adapter.adapt(tool.inputSchema)
+        if let schema = result.schema {
+            declaration["parameters"] = schema
+        }
+        return declaration
     }
 
     // MARK: - Response part extraction
