@@ -41,7 +41,7 @@ struct InformationCardView: View {
                         .foregroundStyle(.secondary)
                 }
 
-                Text(data.body)
+                Text(markdownAttributed(data.body))
                     .font(.body)
                     .foregroundStyle(.primary)
             }

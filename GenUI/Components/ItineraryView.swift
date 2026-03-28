@@ -161,7 +161,7 @@ struct ItineraryDayView: View {
                 }
             }
 
-            Text(day.description)
+            Text(markdownAttributed(day.description))
                 .font(.body)
                 .foregroundStyle(.secondary)
 
@@ -257,7 +257,7 @@ struct ItineraryEntryView: View {
                     .foregroundStyle(.secondary)
                 }
 
-                Text(entry.bodyText)
+                Text(markdownAttributed(entry.bodyText))
                     .font(.caption)
                     .foregroundStyle(.secondary)
                     .padding(.top, 2)
