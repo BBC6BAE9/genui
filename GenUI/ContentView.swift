@@ -29,8 +29,7 @@ struct ContentView: View {
                     .id(travelViewId)
                 }
             }
-            .navigationTitle("Agentic Travel")
-            .navigationSubtitle("SwiftUI GenUI")
+            .navigationTitle("Agentic Travel Inc.")
             #if !os(tvOS) && !os(macOS)
             .navigationBarTitleDisplayMode(.inline)
             #endif

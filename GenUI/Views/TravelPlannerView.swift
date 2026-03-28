@@ -24,28 +24,21 @@ struct TravelPlannerView: View {
 
     @ViewBuilder
     private var chatView: some View {
-        VStack(spacing: 0) {
-            ScrollViewReader { proxy in
-                ScrollView {
-                    LazyVStack(spacing: 0) {
-                        ConversationView(
-                            messages: viewModel.messages,
-                            viewModel: viewModel
-                        )
+        ScrollViewReader { proxy in
+            ScrollView {
+                LazyVStack(spacing: 0) {
+                    ConversationView(
+                        messages: viewModel.messages,
+                        viewModel: viewModel
+                    )
 
-                        // Scroll anchor
-                        Color.clear
-                            .frame(height: 1)
-                            .id("bottom")
-                    }
-                }
-                .onChange(of: viewModel.messages.count) {
-                    withAnimation {
-                        proxy.scrollTo("bottom", anchor: .bottom)
-                    }
+                    // Scroll anchor
+                    Color.clear
+                        .frame(height: 1)
+                        .id("bottom")
                 }
             }
-            .safeAreaInset(edge: .bottom) {
+            .safeAreaInset(edge: .bottom, spacing: 50) {
                 ChatInputView(
                     text: $inputText,
                     isProcessing: viewModel.isProcessing
@@ -53,14 +46,16 @@ struct TravelPlannerView: View {
                     viewModel.sendMessage(text)
                     inputText = ""
                 }
-                .background(
-                    Color.red
-                        .ignoresSafeArea(edges: .bottom)
-                )
+                .background(Color(.systemBackground).blur(radius: 5).ignoresSafeArea())
             }
-            
+            .onChange(of: viewModel.messages.count) {
+                withAnimation {
+                    proxy.scrollTo("bottom", anchor: .bottom)
+                }
+            }
         }
     }
+    
 }
 
 // MARK: - Chat Input
@@ -100,10 +95,10 @@ struct ChatInputView: View {
         .background(
             RoundedRectangle(cornerRadius: 25)
                 .fill(.background)
-                .shadow(color: .black.opacity(0.1), radius: 4, x: 0, y: -1)
+                .shadow(color: .black.opacity(0.1), radius: 4)
         )
-        .padding(.horizontal, 8)
-        .padding(.vertical, 6)
+        .padding(.horizontal, 16)
+        .padding(.vertical, 12)
     }
 }
 

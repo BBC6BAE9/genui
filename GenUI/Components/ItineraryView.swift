@@ -87,11 +87,8 @@ struct ItineraryDetailSheet: View {
                     } else {
                         let assetName = a2uiExtractAssetName(from: data.imageName)
                         Image(assetName)
-                            .resizable()
-                            .aspectRatio(contentMode: .fill)
-                            .frame(height: 200)
-                            .frame(maxWidth: .infinity)
-                            .clipped()
+                            .resizable(resizingMode: .stretch)
+                            .aspectRatio(contentMode: .fit)
                     }
 
                     VStack(alignment: .leading, spacing: 8) {
@@ -102,7 +99,7 @@ struct ItineraryDetailSheet: View {
                         Button("View Details") {
                             onViewDetails?()
                         }
-                        .buttonStyle(.borderedProminent)
+                        .buttonStyle(.bordered)
                     }
                     .padding()
 
