@@ -1,0 +1,3 @@
+module GenAIPrimitives {
+    header "/Users/hong/Desktop/genui-ops/GenAIPrimitives/.build/arm64-apple-macosx/debug/GenAIPrimitives.build/include/GenAIPrimitives-Swift.h"
+}

@@ -3,7 +3,7 @@
 // found in the LICENSE file.
 
 import SwiftUI
-import A2UI
+import A2UIV09
 
 /// A card displaying detailed information about a travel destination.
 /// Equivalent to the Flutter `InformationCard` catalog component.
@@ -16,16 +16,16 @@ struct InformationCardView: View {
             // Header image
             if let imageView {
                 imageView
-                    .frame(height: 200)
                     .frame(maxWidth: .infinity)
+                    .frame(height: 200)
                     .clipped()
             } else if let imageName = data.imageName {
                 let assetName = a2uiExtractAssetName(from: imageName)
                 Image(assetName)
                     .resizable()
                     .aspectRatio(contentMode: .fill)
-                    .frame(height: 200)
                     .frame(maxWidth: .infinity)
+                    .frame(height: 200)
                     .clipped()
             }
 
@@ -58,19 +58,35 @@ struct InformationCardView: View {
 /// Renders an `InformationCard` from an A2UI `ComponentNode`.
 struct A2UIInformationCardView: View {
     let node: ComponentNode
-    let viewModel: SurfaceViewModel
+    let children: [ComponentNode]
+    let surface: SurfaceModel
 
-    private var props: [String: AnyCodable] { node.payload.properties }
+    private var props: [String: AnyCodable] { node.instance.properties }
 
     var body: some View {
-        let title = A2UIHelpers.resolveString(props["title"], viewModel: viewModel, dataContextPath: node.dataContextPath) ?? ""
-        let subtitle = A2UIHelpers.resolveString(props["subtitle"], viewModel: viewModel, dataContextPath: node.dataContextPath)
-        let body = A2UIHelpers.resolveString(props["body"], viewModel: viewModel, dataContextPath: node.dataContextPath) ?? ""
-        let imageNode = buildImageNode()
+        let title = A2UIHelpers.resolveString(props["title"], surface: surface, dataContextPath: node.dataContextPath) ?? ""
+        let subtitle = A2UIHelpers.resolveString(props["subtitle"], surface: surface, dataContextPath: node.dataContextPath)
+        let body = A2UIHelpers.resolveString(props["body"], surface: surface, dataContextPath: node.dataContextPath) ?? ""
+
+        // imageChildId is a direct component reference, not in "children" array.
+        // Build the node manually from the surface's component registry.
+        let imageNode: ComponentNode? = {
+            guard let imageChildId = props["imageChildId"]?.stringValue,
+                  let model = surface.componentsModel.get(imageChildId) else { return nil }
+            let raw = RawComponent(id: model.id, component: model.type, properties: model.properties)
+            return ComponentNode(
+                id: model.id,
+                baseComponentId: model.id,
+                type: raw.componentType,
+                dataContextPath: node.dataContextPath,
+                weight: nil,
+                instance: raw
+            )
+        }()
 
         let imageView: AnyView? = imageNode.map { n in
             AnyView(
-                A2UIComponentView(node: n, viewModel: viewModel)
+                A2UIComponentView(node: n, surface: surface)
                     .frame(height: 200)
             )
         }
@@ -85,11 +101,6 @@ struct A2UIInformationCardView: View {
             imageView: imageView
         )
         .padding(.horizontal)
-    }
-
-    private func buildImageNode() -> ComponentNode? {
-        guard let childId = props["imageChildId"]?.stringValue else { return nil }
-        return viewModel.buildComponentNode(for: childId, dataContextPath: node.dataContextPath)
     }
 }
 

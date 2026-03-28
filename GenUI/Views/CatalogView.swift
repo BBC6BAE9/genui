@@ -3,11 +3,11 @@
 // found in the LICENSE file.
 
 import SwiftUI
-import A2UI
+import A2UIV09
 
 /// A debug catalog view that showcases all components rendered via A2UI,
 /// matching the Flutter `DebugCatalogView` layout: each component's example data
-/// is parsed into a SurfaceManager, then rendered inside a labeled card.
+/// is parsed into a SurfaceViewModel, then rendered inside a labeled card.
 struct CatalogView: View {
     @State private var catalogSections: [CatalogSection] = []
 
@@ -20,8 +20,9 @@ struct CatalogView: View {
                             .font(.title3)
                             .fontWeight(.bold)
 
-                        CatalogSurfaceView(manager: section.manager)
+                        CatalogSurfaceView(viewModel: section.viewModel)
                     }
+                    .frame(maxWidth: .infinity)
                     .padding()
                     .background(Color.accentColor.opacity(0.08))
                     .clipShape(RoundedRectangle(cornerRadius: 12))
@@ -42,7 +43,7 @@ struct CatalogView: View {
     struct CatalogSection: Identifiable {
         let id: String
         let surfaceId: String
-        let manager: SurfaceManager
+        let viewModel: SurfaceViewModel
     }
 
     // MARK: - Build all catalog items matching Flutter's DebugCatalogView
@@ -56,20 +57,23 @@ struct CatalogView: View {
                 let surfaceId = "\(item.name)\(indexPart)"
                 let components = exampleBuilder()
 
-                let manager = SurfaceManager()
-                // Process: updateComponents first, then createSurface (matching Flutter order)
-                if let update = MockA2UIMessages.decodeMessage(["updateComponents": ["surfaceId": surfaceId, "components": components]]) {
-                    try? manager.processMessage(update)
+                let catalog = Catalog(id: "travel")
+                let surface = SurfaceModel(id: surfaceId, catalog: catalog)
+                let viewModel = SurfaceViewModel(surface: surface)
+
+                // Process: updateComponents first (registers components), then createSurface (builds tree)
+                if let update = MockServerToClientMessages.decodeMessage(["updateComponents": ["surfaceId": surfaceId, "components": components]]) {
+                    try? viewModel.processMessage(update)
                 }
-                if let create = MockA2UIMessages.decodeMessage(["createSurface": ["surfaceId": surfaceId]]) {
-                    try? manager.processMessage(create)
+                if let create = MockServerToClientMessages.decodeMessage(["createSurface": ["surfaceId": surfaceId, "catalogId": "travel"]]) {
+                    try? viewModel.processMessage(create)
                 }
 
-                if !manager.orderedSurfaceIds.isEmpty {
+                if viewModel.componentTree != nil {
                     sections.append(CatalogSection(
                         id: surfaceId,
                         surfaceId: surfaceId,
-                        manager: manager
+                        viewModel: viewModel
                     ))
                 }
             }
@@ -125,7 +129,7 @@ struct CatalogView: View {
              "children": ["primaryButton", "secondaryButton"]],
             ["id": "primaryButton", "component": "Button",
              "child": "primaryText",
-             "primary": true,
+             "variant": "primary",
              "action": ["event": ["name": "primary_pressed"]]],
             ["id": "primaryText", "component": "Text", "text": "Primary Button"],
             ["id": "secondaryButton", "component": "Button",
@@ -350,15 +354,12 @@ struct CatalogView: View {
 // MARK: - Surface Rendering View
 
 private struct CatalogSurfaceView: View {
-    let manager: SurfaceManager
+    let viewModel: SurfaceViewModel
 
     var body: some View {
-        ForEach(manager.orderedSurfaceIds, id: \.self) { surfaceId in
-            if let vm = manager.surfaces[surfaceId],
-               let rootNode = vm.componentTree {
-                A2UIComponentView(node: rootNode, viewModel: vm)
-                    .a2uiCustomComponents(travelCustomRenderer)
-            }
+        if let rootNode = viewModel.componentTree {
+            A2UIComponentView(node: rootNode, surface: viewModel.surface)
+                .a2uiCustomComponentsV09(travelCustomRenderer)
         }
     }
 }

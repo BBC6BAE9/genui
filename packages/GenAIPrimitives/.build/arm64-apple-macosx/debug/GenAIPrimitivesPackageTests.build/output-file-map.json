@@ -1,0 +1,12 @@
+{
+  "": {
+    "swift-dependencies": "/Users/hong/Desktop/genui-ops/GenAIPrimitives/.build/arm64-apple-macosx/debug/GenAIPrimitivesPackageTests.build/master.swiftdeps"
+  },
+  "/Users/hong/Desktop/genui-ops/GenAIPrimitives/.build/arm64-apple-macosx/debug/GenAIPrimitivesPackageTests.derived/runner.swift": {
+    "dependencies": "/Users/hong/Desktop/genui-ops/GenAIPrimitives/.build/arm64-apple-macosx/debug/GenAIPrimitivesPackageTests.build/runner.d",
+    "object": "/Users/hong/Desktop/genui-ops/GenAIPrimitives/.build/arm64-apple-macosx/debug/GenAIPrimitivesPackageTests.build/runner.swift.o",
+    "swiftmodule": "/Users/hong/Desktop/genui-ops/GenAIPrimitives/.build/arm64-apple-macosx/debug/GenAIPrimitivesPackageTests.build/runner~partial.swiftmodule",
+    "swift-dependencies": "/Users/hong/Desktop/genui-ops/GenAIPrimitives/.build/arm64-apple-macosx/debug/GenAIPrimitivesPackageTests.build/runner.swiftdeps",
+    "diagnostics": "/Users/hong/Desktop/genui-ops/GenAIPrimitives/.build/arm64-apple-macosx/debug/GenAIPrimitivesPackageTests.build/runner.dia"
+  }
+}

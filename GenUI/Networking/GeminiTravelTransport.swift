@@ -3,12 +3,12 @@
 // found in the LICENSE file.
 
 import Foundation
-import A2UI
+import A2UIV09
 
 /// Transport that calls the Google Gemini REST API directly,
 /// aligning with the Flutter `GoogleGenerativeAiClient` implementation.
 final class GeminiTravelTransport: TravelTransport {
-    let supportsStreaming = false
+    let supportsStreaming = true
 
     private let apiKey: String
     private let model: String
@@ -16,7 +16,7 @@ final class GeminiTravelTransport: TravelTransport {
 
     /// Client data model set by the ViewModel before actions, matching Flutter's
     /// pattern of including the data model in the system instruction.
-    var clientDataModel: [String: [String: AnyCodable]]?
+    var clientDataModel: A2uiClientDataModel?
 
     /// Stores the last plain text response from the model when no A2UI messages
     /// were generated. Read by the ViewModel to show as a text bubble.
@@ -76,16 +76,149 @@ final class GeminiTravelTransport: TravelTransport {
         return TransportResponse(messages: messages, contextId: contextId, textResponse: lastTextResponse)    }
 
     func sendTextStream(_ text: String, contextId: String?) -> AsyncThrowingStream<StreamEvent, Error>? {
-        nil
+        return AsyncThrowingStream { continuation in
+            Task {
+                do {
+                    conversationHistory.append(userContent(text))
+                    let stream = try streamContent(continuation: continuation)
+                    _ = stream
+                } catch {
+                    continuation.finish(throwing: error)
+                }
+            }
+        }
     }
 
     func sendActionStream(_ action: ResolvedAction, surfaceId: String, contextId: String?) -> AsyncThrowingStream<StreamEvent, Error>? {
-        nil
+        return AsyncThrowingStream { continuation in
+            Task {
+                do {
+                    var actionContext: [String: Any] = [:]
+                    for (key, value) in action.context {
+                        switch value {
+                        case .string(let s): actionContext[key] = s
+                        case .number(let n): actionContext[key] = n
+                        case .bool(let b): actionContext[key] = b
+                        default: actionContext[key] = "\(value)"
+                        }
+                    }
+                    let interactionJson: [String: Any] = [
+                        "interaction": [
+                            "version": "v0.9",
+                            "action": [
+                                "surfaceId": surfaceId,
+                                "name": action.name,
+                                "sourceComponentId": action.sourceComponentId,
+                                "context": actionContext
+                            ] as [String: Any]
+                        ] as [String: Any]
+                    ]
+                    if let data = try? JSONSerialization.data(withJSONObject: interactionJson, options: [.sortedKeys]),
+                       let text = String(data: data, encoding: .utf8) {
+                        conversationHistory.append(userContent(text))
+                    }
+                    updateClientDataModelForStreaming()
+                    try streamContent(continuation: continuation)
+                } catch {
+                    continuation.finish(throwing: error)
+                }
+            }
+        }
+    }
+
+    @discardableResult
+    private func streamContent(continuation: AsyncThrowingStream<StreamEvent, Error>.Continuation) throws -> Bool {
+        Task {
+            do {
+                let url = URL(string: "https://generativelanguage.googleapis.com/v1beta/models/\(model):streamGenerateContent?key=\(apiKey)&alt=sse")!
+                let requestBody: [String: Any] = [
+                    "contents": conversationHistory,
+                    "system_instruction": systemInstruction(),
+                    "tools": toolDeclarations(),
+                    "toolConfig": ["functionCallingConfig": ["mode": "AUTO"]],
+                    "generationConfig": [
+                        "temperature": 1.0,
+                        "topP": 0.95,
+                        "maxOutputTokens": 65536
+                    ]
+                ]
+
+                var request = URLRequest(url: url)
+                request.httpMethod = "POST"
+                request.setValue("application/json", forHTTPHeaderField: "Content-Type")
+                request.timeoutInterval = 300
+                request.httpBody = try JSONSerialization.data(withJSONObject: requestBody)
+
+                let (bytes, response) = try await URLSession.shared.bytes(for: request)
+                guard let httpResponse = response as? HTTPURLResponse, httpResponse.statusCode == 200 else {
+                    throw GeminiError.invalidResponse
+                }
+
+                var accumulatedText = ""
+                var functionCalls: [[String: Any]] = []
+                var modelParts: [[String: Any]] = []
+
+                for try await line in bytes.lines {
+                    guard line.hasPrefix("data: ") else { continue }
+                    let jsonStr = String(line.dropFirst(6))
+                    guard jsonStr != "[DONE]",
+                          let data = jsonStr.data(using: .utf8),
+                          let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any] else { continue }
+
+                    let (calls, textParts, parts) = extractResponseParts(from: json)
+                    functionCalls.append(contentsOf: calls)
+                    if let parts { modelParts.append(contentsOf: parts) }
+
+                    for chunk in textParts {
+                        accumulatedText += chunk
+                        continuation.yield(.textChunk(chunk))
+                    }
+                }
+
+                // Save model turn to history
+                if !modelParts.isEmpty {
+                    conversationHistory.append(["role": "model", "parts": modelParts])
+                }
+
+                if !functionCalls.isEmpty {
+                    // Handle tool calls: execute and make another (non-streaming) call
+                    continuation.yield(.status(state: "tool_use", text: "Looking up options...", taskId: nil, contextId: nil, isFinal: false))
+                    var functionResponseParts: [[String: Any]] = []
+                    for call in functionCalls {
+                        let name = call["name"] as? String ?? ""
+                        let args = call["args"] as? [String: Any] ?? [:]
+                        let result = await executeTool(name: name, args: args)
+                        functionResponseParts.append(["functionResponse": ["name": name, "response": result]])
+                    }
+                    conversationHistory.append(["role": "user", "parts": functionResponseParts])
+
+                    // Non-streaming follow-up after tool use
+                    let finalMessages = try await generateContent()
+                    let cleanText = stripJSONBlocks(from: lastTextResponse ?? "").trimmingCharacters(in: .whitespacesAndNewlines)
+                    continuation.yield(.result(TransportResponse(messages: finalMessages, contextId: nil, textResponse: cleanText.isEmpty ? nil : cleanText)))
+                } else {
+                    // Don't re-parse A2UI messages here — they were already processed
+                    // inline by the collectStream's A2UIStreamParser during streaming.
+                    // Only pass along any remaining plain text.
+                    let cleanText = stripJSONBlocks(from: accumulatedText).trimmingCharacters(in: .whitespacesAndNewlines)
+                    continuation.yield(.result(TransportResponse(messages: [], contextId: nil, textResponse: cleanText.isEmpty ? nil : cleanText)))
+                }
+
+                continuation.finish()
+            } catch {
+                continuation.finish(throwing: error)
+            }
+        }
+        return true
+    }
+
+    private func updateClientDataModelForStreaming() {
+        // No-op here; ViewModel calls updateClientDataModel() before action calls.
     }
 
     // MARK: - Gemini API
 
-    private func generateContent() async throws -> [ServerToClientMessage] {
+    private func generateContent() async throws -> [A2uiMessage] {
         let url = URL(string: "https://generativelanguage.googleapis.com/v1beta/models/\(model):generateContent?key=\(apiKey)")!
 
         let requestBody: [String: Any] = [
@@ -134,25 +267,25 @@ final class GeminiTravelTransport: TravelTransport {
     }
 
     /// Process a Gemini response, handling tool call loops.
-    private func handleResponse(_ initialJson: [String: Any], url: URL) async throws -> [ServerToClientMessage] {
+    private func handleResponse(_ initialJson: [String: Any], url: URL) async throws -> [A2uiMessage] {
         lastTextResponse = nil
         var currentJson = initialJson
         var toolCycles = 0
         let maxToolCycles = 10
 
         while toolCycles < maxToolCycles {
-            let (functionCalls, textParts, modelContent) = extractResponseParts(from: currentJson)
+            let (functionCalls, textParts, parts) = extractResponseParts(from: currentJson)
 
             if functionCalls.isEmpty {
                 let fullText = textParts.joined()
                 print("[GeminiTransport] Model text response (\(fullText.count) chars): \(fullText.prefix(300))...")
 
                 // Add model response to conversation history
-                if let modelContent {
-                    conversationHistory.append(modelContent)
+                if let parts {
+                    conversationHistory.append(["role": "model", "parts": parts])
                 }
 
-                let messages = parseA2UIMessages(from: fullText)
+                let messages = await parseA2uiMessages(from: fullText)
                 print("[GeminiTransport] Parsed \(messages.count) A2UI messages")
 
                 // If no A2UI messages were parsed but there's text, save it
@@ -171,8 +304,8 @@ final class GeminiTravelTransport: TravelTransport {
             print("[GeminiTransport] Tool cycle \(toolCycles): \(functionCalls.count) function call(s)")
 
             // Add model response (with function calls) to history
-            if let modelContent {
-                conversationHistory.append(modelContent)
+            if let parts {
+                conversationHistory.append(["role": "model", "parts": parts])
             }
 
             // Process function calls
@@ -215,11 +348,11 @@ final class GeminiTravelTransport: TravelTransport {
         return []
     }
 
-    /// Extract function calls, text parts, and the model content from a Gemini response.
+    /// Streaming variant: returns individual parts for incremental accumulation.
     private func extractResponseParts(from json: [String: Any]) -> (
         functionCalls: [[String: Any]],
         textParts: [String],
-        modelContent: [String: Any]?
+        parts: [[String: Any]]?
     ) {
         guard let candidates = json["candidates"] as? [[String: Any]],
               let firstCandidate = candidates.first,
@@ -240,12 +373,7 @@ final class GeminiTravelTransport: TravelTransport {
             }
         }
 
-        let modelContent: [String: Any] = [
-            "role": content["role"] as? String ?? "model",
-            "parts": parts
-        ]
-
-        return (functionCalls, textParts, modelContent)
+        return (functionCalls, textParts, parts)
     }
 
     /// Returns the `tools` array for the Gemini API request, declaring the `listHotels` function.
@@ -313,19 +441,20 @@ final class GeminiTravelTransport: TravelTransport {
         let dateString = ISO8601DateFormatter().string(from: Date()).prefix(10)
         var parts: [[String: Any]] = [
             ["text": Self.systemPrompt],
-            ["text": "Current Date: \(dateString)\nYou do not have the ability to execute code. All functionality must be expressed through UI components."],
+            ["text": "Current Date: \(dateString)"],
+            // Matches Flutter PromptBuilder.custom() injected fragments:
+            ["text": "Use the provided tools to respond to user using rich UI elements."],
+            ["text": "IMPORTANT: You do not have the ability to execute code. If you need to perform calculations, do them yourself."],
+            ["text": "IMPORTANT: You do not have the ability to use tools for UI generation."],
+            ["text": "IMPORTANT: You do not have the ability to use function calls for UI generation."],
             ["text": Self.catalogRules],
         ]
         // Include client data model when available (matches Flutter's pattern
         // of sending the data model in the system instruction).
-        if let clientDataModel, !clientDataModel.isEmpty {
+        if let clientDataModel {
             var dataDict: [String: Any] = [:]
-            for (surfaceId, model) in clientDataModel {
-                var surfaceData: [String: Any] = [:]
-                for (key, value) in model {
-                    surfaceData[key] = anyCodableToAny(value)
-                }
-                dataDict[surfaceId] = surfaceData
+            for (surfaceId, surfaceData) in clientDataModel.surfaces {
+                dataDict[surfaceId] = anyCodableToAny(surfaceData)
             }
             if let data = try? JSONSerialization.data(withJSONObject: dataDict, options: [.prettyPrinted, .sortedKeys]),
                let dataString = String(data: data, encoding: .utf8) {
@@ -360,83 +489,48 @@ final class GeminiTravelTransport: TravelTransport {
 
     // MARK: - JSON Block Parsing
 
-    /// Parse ```json code blocks from the response text into ServerToClientMessage array.
-    private func parseA2UIMessages(from text: String) -> [ServerToClientMessage] {
-        let jsonBlocks = extractJSONBlocks(from: text)
-        var messages: [ServerToClientMessage] = []
+    /// Parse A2UI messages from the response text.
+    /// Mirrors Flutter's `GoogleGenerativeAiClient` which uses `JsonBlockParser.parseJsonBlocks`.
+    private func parseA2uiMessages(from text: String) async -> [A2uiMessage] {
+        // Use A2UIStreamParser (from SPM) — feed full text then collect via events stream.
+        let parser = A2UIStreamParser()
+        var messages: [A2uiMessage] = []
 
-        for (i, block) in jsonBlocks.enumerated() {
-            print("[GeminiTransport] Block[\(i)] full content:\n\(block)")
+        await parser.add(text)
+        await parser.finish()
 
-            guard let data = block.data(using: .utf8) else {
-                print("[GeminiTransport] Block[\(i)] failed to convert to data")
-                continue
-            }
-
-            // Try to parse as a dictionary first
-            guard var json = try? JSONSerialization.jsonObject(with: data) as? [String: Any] else {
-                print("[GeminiTransport] Block[\(i)] failed JSON parse: \(block.prefix(200))")
-                continue
-            }
-
-            // Inject version if missing (aligning with Flutter behavior)
-            if json["version"] == nil {
-                json["version"] = "v0.9"
-            }
-
-            if let message = MockA2UIMessages.decodeMessage(json) {
-                // Log message type
-                let msgType: String
-                if json["createSurface"] != nil { msgType = "createSurface" }
-                else if json["updateComponents"] != nil { msgType = "updateComponents" }
-                else if json["deleteSurface"] != nil { msgType = "deleteSurface" }
-                else { msgType = "unknown(\(json.keys.sorted()))" }
-                print("[GeminiTransport] Decoded message[\(i)]: \(msgType)")
-                messages.append(message)
-            } else {
-                // Log the keys to understand why decode failed
-                print("[GeminiTransport] Block[\(i)] decodeMessage failed. Keys: \(json.keys.sorted())")
-                print("[GeminiTransport]   JSON: \(block.prefix(300))")
+        for await event in parser.events {
+            switch event {
+            case .message(let msg):
+                messages.append(msg)
+            case .text, .error:
+                break
             }
         }
 
-        return messages
-    }
-
-    /// Extract JSON code blocks (```json ... ```) from markdown text.
-    private func extractJSONBlocks(from text: String) -> [String] {
-        var blocks: [String] = []
-        // Match ```json optionally followed by whitespace/newline, then content, then ```
-        let pattern = "```json\\s*([\\s\\S]*?)```"
-        guard let regex = try? NSRegularExpression(pattern: pattern) else { return blocks }
-
-        let nsText = text as NSString
-        let matches = regex.matches(in: text, range: NSRange(location: 0, length: nsText.length))
-
-        for match in matches {
-            if match.numberOfRanges >= 2 {
-                let blockRange = match.range(at: 1)
-                let block = nsText.substring(with: blockRange).trimmingCharacters(in: .whitespacesAndNewlines)
-                if !block.isEmpty {
-                    blocks.append(block)
+        // Fallback: use JsonBlockParser (from SPM) for blocks that A2UIStreamParser
+        // couldn't decode (e.g. missing "version" field).
+        // Mirrors Flutter's GoogleGenerativeAiClient fallback path.
+        if messages.isEmpty {
+            let blocks = JsonBlockParser.parseJsonBlocks(text)
+            for block in blocks {
+                guard var json = block as? [String: Any] else { continue }
+                // Inject version if missing — matches Flutter SurfaceController behaviour.
+                if json["version"] == nil { json["version"] = "v0.9" }
+                if let message = MockServerToClientMessages.decodeMessage(json) {
+                    messages.append(message)
                 }
             }
         }
 
-        print("[GeminiTransport] extractJSONBlocks: found \(blocks.count) blocks from \(text.count) chars")
-        for (i, block) in blocks.enumerated() {
-            print("[GeminiTransport]   block[\(i)]: \(block.prefix(200))...")
-        }
-
-        return blocks
+        print("[GeminiTransport] parseA2uiMessages: \(messages.count) messages from \(text.count) chars")
+        return messages
     }
 
     /// Strip JSON code blocks from text, leaving only the conversational text.
+    /// Delegates to `JsonBlockParser.stripJsonBlock` from SPM.
     private func stripJSONBlocks(from text: String) -> String {
-        let pattern = "```json\\s*[\\s\\S]*?```"
-        guard let regex = try? NSRegularExpression(pattern: pattern) else { return text }
-        let nsText = text as NSString
-        return regex.stringByReplacingMatches(in: text, range: NSRange(location: 0, length: nsText.length), withTemplate: "")
+        JsonBlockParser.stripJsonBlock(text)
     }
 
     // MARK: - Prompts (aligned with Flutter travel_planner_page.dart)
@@ -661,13 +755,13 @@ final class GeminiTravelTransport: TravelTransport {
             "id": "mexico_city_image",
             "component": "Image",
             "url": "santorini_panorama",
-            "variant": "mediumFeature"
+            "fit": "cover"
           },
           {
             "id": "day1_image",
             "component": "Image",
             "url": "santorini_panorama",
-            "variant": "mediumFeature"
+            "fit": "cover"
           }
         ]
       }
@@ -734,10 +828,10 @@ final class GeminiTravelTransport: TravelTransport {
     - To show a UI, you typically send a `createSurface` message (if the surface doesn't exist), followed by an `updateComponents` message.
     """
 
-    // MARK: - A2UI Message Schema (matching Flutter's A2uiMessage.a2uiMessageSchema output)
+    // MARK: - A2UI Message Schema (matching Flutter's ServerToClientMessage.ServerToClientMessageSchema output)
 
     /// Generates the full A2UI Message Schema JSON string matching Flutter's
-    /// `A2uiMessage.a2uiMessageSchema(catalog).toJson(indent: '  ')` output.
+    /// `ServerToClientMessage.ServerToClientMessageSchema(catalog).toJson(indent: '  ')` output.
     /// This is the proper JSON Schema format that Gemini needs to understand
     /// the available components and their properties.
     static var catalogSchema: String {

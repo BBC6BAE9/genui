@@ -1,0 +1,790 @@
+{
+  "builtTestProducts" : [
+    {
+      "binaryPath" : "/Users/hong/Desktop/genui-ops/GenAIPrimitives/.build/arm64-apple-macosx/debug/GenAIPrimitivesPackageTests.xctest/Contents/MacOS/GenAIPrimitivesPackageTests",
+      "packagePath" : "/Users/hong/Desktop/genui-ops/GenAIPrimitives",
+      "productName" : "GenAIPrimitivesPackageTests"
+    }
+  ],
+  "copyCommands" : {
+
+  },
+  "explicitTargetDependencyImportCheckingMode" : {
+    "none" : {
+
+    }
+  },
+  "generatedSourceTargetSet" : [
+
+  ],
+  "pluginDescriptions" : [
+
+  ],
+  "swiftCommands" : {
+    "C.GenAIPrimitives-arm64-apple-macosx26.0-debug.module" : {
+      "executable" : "/Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/bin/swiftc",
+      "fileList" : "/Users/hong/Desktop/genui-ops/GenAIPrimitives/.build/arm64-apple-macosx/debug/GenAIPrimitives.build/sources",
+      "importPath" : "/Users/hong/Desktop/genui-ops/GenAIPrimitives/.build/arm64-apple-macosx/debug/Modules",
+      "inputs" : [
+        {
+          "kind" : "file",
+          "name" : "/Users/hong/Desktop/genui-ops/GenAIPrimitives/Sources/GenAIPrimitives/ChatMessage.swift"
+        },
+        {
+          "kind" : "file",
+          "name" : "/Users/hong/Desktop/genui-ops/GenAIPrimitives/Sources/GenAIPrimitives/FinishStatus.swift"
+        },
+        {
+          "kind" : "file",
+          "name" : "/Users/hong/Desktop/genui-ops/GenAIPrimitives/Sources/GenAIPrimitives/JSONValue.swift"
+        },
+        {
+          "kind" : "file",
+          "name" : "/Users/hong/Desktop/genui-ops/GenAIPrimitives/Sources/GenAIPrimitives/Part.swift"
+        },
+        {
+          "kind" : "file",
+          "name" : "/Users/hong/Desktop/genui-ops/GenAIPrimitives/Sources/GenAIPrimitives/Parts.swift"
+        },
+        {
+          "kind" : "file",
+          "name" : "/Users/hong/Desktop/genui-ops/GenAIPrimitives/Sources/GenAIPrimitives/StandardPart.swift"
+        },
+        {
+          "kind" : "file",
+          "name" : "/Users/hong/Desktop/genui-ops/GenAIPrimitives/Sources/GenAIPrimitives/ToolDefinition.swift"
+        },
+        {
+          "kind" : "file",
+          "name" : "/Users/hong/Desktop/genui-ops/GenAIPrimitives/.build/arm64-apple-macosx/debug/swift-version--58304C5D6DBC2206.txt"
+        },
+        {
+          "kind" : "file",
+          "name" : "/Users/hong/Desktop/genui-ops/GenAIPrimitives/.build/arm64-apple-macosx/debug/GenAIPrimitives.build/sources"
+        }
+      ],
+      "isLibrary" : true,
+      "moduleName" : "GenAIPrimitives",
+      "moduleOutputPath" : "/Users/hong/Desktop/genui-ops/GenAIPrimitives/.build/arm64-apple-macosx/debug/Modules/GenAIPrimitives.swiftmodule",
+      "objects" : [
+        "/Users/hong/Desktop/genui-ops/GenAIPrimitives/.build/arm64-apple-macosx/debug/GenAIPrimitives.build/ChatMessage.swift.o",
+        "/Users/hong/Desktop/genui-ops/GenAIPrimitives/.build/arm64-apple-macosx/debug/GenAIPrimitives.build/FinishStatus.swift.o",
+        "/Users/hong/Desktop/genui-ops/GenAIPrimitives/.build/arm64-apple-macosx/debug/GenAIPrimitives.build/JSONValue.swift.o",
+        "/Users/hong/Desktop/genui-ops/GenAIPrimitives/.build/arm64-apple-macosx/debug/GenAIPrimitives.build/Part.swift.o",
+        "/Users/hong/Desktop/genui-ops/GenAIPrimitives/.build/arm64-apple-macosx/debug/GenAIPrimitives.build/Parts.swift.o",
+        "/Users/hong/Desktop/genui-ops/GenAIPrimitives/.build/arm64-apple-macosx/debug/GenAIPrimitives.build/StandardPart.swift.o",
+        "/Users/hong/Desktop/genui-ops/GenAIPrimitives/.build/arm64-apple-macosx/debug/GenAIPrimitives.build/ToolDefinition.swift.o"
+      ],
+      "otherArguments" : [
+        "-target",
+        "arm64-apple-macosx10.13",
+        "-incremental",
+        "-enable-batch-mode",
+        "-serialize-diagnostics",
+        "-index-store-path",
+        "/Users/hong/Desktop/genui-ops/GenAIPrimitives/.build/arm64-apple-macosx/debug/index/store",
+        "-Onone",
+        "-enable-testing",
+        "-j14",
+        "-DSWIFT_PACKAGE",
+        "-DDEBUG",
+        "-DSWIFT_MODULE_RESOURCE_BUNDLE_UNAVAILABLE",
+        "-module-cache-path",
+        "/Users/hong/Desktop/genui-ops/GenAIPrimitives/.build/arm64-apple-macosx/debug/ModuleCache",
+        "-parseable-output",
+        "-parse-as-library",
+        "-emit-objc-header",
+        "-emit-objc-header-path",
+        "/Users/hong/Desktop/genui-ops/GenAIPrimitives/.build/arm64-apple-macosx/debug/GenAIPrimitives.build/include/GenAIPrimitives-Swift.h",
+        "-swift-version",
+        "5",
+        "-plugin-path",
+        "/Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/lib/swift/host/plugins/testing",
+        "-sdk",
+        "/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX26.2.sdk",
+        "-F",
+        "/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/Library/Frameworks",
+        "-F",
+        "/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/Library/PrivateFrameworks",
+        "-I",
+        "/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/usr/lib",
+        "-L",
+        "/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/usr/lib",
+        "-g",
+        "-Xcc",
+        "-isysroot",
+        "-Xcc",
+        "/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX26.2.sdk",
+        "-Xcc",
+        "-F",
+        "-Xcc",
+        "/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/Library/Frameworks",
+        "-Xcc",
+        "-F",
+        "-Xcc",
+        "/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/Library/PrivateFrameworks",
+        "-Xcc",
+        "-fPIC",
+        "-Xcc",
+        "-g",
+        "-package-name",
+        "genaiprimitives"
+      ],
+      "outputFileMapPath" : "/Users/hong/Desktop/genui-ops/GenAIPrimitives/.build/arm64-apple-macosx/debug/GenAIPrimitives.build/output-file-map.json",
+      "outputs" : [
+        {
+          "kind" : "file",
+          "name" : "/Users/hong/Desktop/genui-ops/GenAIPrimitives/.build/arm64-apple-macosx/debug/GenAIPrimitives.build/ChatMessage.swift.o"
+        },
+        {
+          "kind" : "file",
+          "name" : "/Users/hong/Desktop/genui-ops/GenAIPrimitives/.build/arm64-apple-macosx/debug/GenAIPrimitives.build/FinishStatus.swift.o"
+        },
+        {
+          "kind" : "file",
+          "name" : "/Users/hong/Desktop/genui-ops/GenAIPrimitives/.build/arm64-apple-macosx/debug/GenAIPrimitives.build/JSONValue.swift.o"
+        },
+        {
+          "kind" : "file",
+          "name" : "/Users/hong/Desktop/genui-ops/GenAIPrimitives/.build/arm64-apple-macosx/debug/GenAIPrimitives.build/Part.swift.o"
+        },
+        {
+          "kind" : "file",
+          "name" : "/Users/hong/Desktop/genui-ops/GenAIPrimitives/.build/arm64-apple-macosx/debug/GenAIPrimitives.build/Parts.swift.o"
+        },
+        {
+          "kind" : "file",
+          "name" : "/Users/hong/Desktop/genui-ops/GenAIPrimitives/.build/arm64-apple-macosx/debug/GenAIPrimitives.build/StandardPart.swift.o"
+        },
+        {
+          "kind" : "file",
+          "name" : "/Users/hong/Desktop/genui-ops/GenAIPrimitives/.build/arm64-apple-macosx/debug/GenAIPrimitives.build/ToolDefinition.swift.o"
+        },
+        {
+          "kind" : "file",
+          "name" : "/Users/hong/Desktop/genui-ops/GenAIPrimitives/.build/arm64-apple-macosx/debug/Modules/GenAIPrimitives.swiftmodule"
+        }
+      ],
+      "prepareForIndexing" : false,
+      "sources" : [
+        "/Users/hong/Desktop/genui-ops/GenAIPrimitives/Sources/GenAIPrimitives/ChatMessage.swift",
+        "/Users/hong/Desktop/genui-ops/GenAIPrimitives/Sources/GenAIPrimitives/FinishStatus.swift",
+        "/Users/hong/Desktop/genui-ops/GenAIPrimitives/Sources/GenAIPrimitives/JSONValue.swift",
+        "/Users/hong/Desktop/genui-ops/GenAIPrimitives/Sources/GenAIPrimitives/Part.swift",
+        "/Users/hong/Desktop/genui-ops/GenAIPrimitives/Sources/GenAIPrimitives/Parts.swift",
+        "/Users/hong/Desktop/genui-ops/GenAIPrimitives/Sources/GenAIPrimitives/StandardPart.swift",
+        "/Users/hong/Desktop/genui-ops/GenAIPrimitives/Sources/GenAIPrimitives/ToolDefinition.swift"
+      ],
+      "tempsPath" : "/Users/hong/Desktop/genui-ops/GenAIPrimitives/.build/arm64-apple-macosx/debug/GenAIPrimitives.build",
+      "wholeModuleOptimization" : false
+    },
+    "C.GenAIPrimitivesPackageTests-arm64-apple-macosx26.0-debug.module" : {
+      "executable" : "/Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/bin/swiftc",
+      "fileList" : "/Users/hong/Desktop/genui-ops/GenAIPrimitives/.build/arm64-apple-macosx/debug/GenAIPrimitivesPackageTests.build/sources",
+      "importPath" : "/Users/hong/Desktop/genui-ops/GenAIPrimitives/.build/arm64-apple-macosx/debug/Modules",
+      "inputs" : [
+        {
+          "kind" : "file",
+          "name" : "/Users/hong/Desktop/genui-ops/GenAIPrimitives/.build/arm64-apple-macosx/debug/GenAIPrimitivesPackageTests.derived/runner.swift"
+        },
+        {
+          "kind" : "file",
+          "name" : "/Users/hong/Desktop/genui-ops/GenAIPrimitives/.build/arm64-apple-macosx/debug/swift-version--58304C5D6DBC2206.txt"
+        },
+        {
+          "kind" : "file",
+          "name" : "/Users/hong/Desktop/genui-ops/GenAIPrimitives/.build/arm64-apple-macosx/debug/Modules/GenAIPrimitivesTests.swiftmodule"
+        },
+        {
+          "kind" : "file",
+          "name" : "/Users/hong/Desktop/genui-ops/GenAIPrimitives/.build/arm64-apple-macosx/debug/GenAIPrimitivesPackageTests.build/sources"
+        }
+      ],
+      "isLibrary" : true,
+      "moduleName" : "GenAIPrimitivesPackageTests",
+      "moduleOutputPath" : "/Users/hong/Desktop/genui-ops/GenAIPrimitives/.build/arm64-apple-macosx/debug/Modules/GenAIPrimitivesPackageTests.swiftmodule",
+      "objects" : [
+        "/Users/hong/Desktop/genui-ops/GenAIPrimitives/.build/arm64-apple-macosx/debug/GenAIPrimitivesPackageTests.build/runner.swift.o"
+      ],
+      "otherArguments" : [
+        "-target",
+        "arm64-apple-macosx10.13",
+        "-incremental",
+        "-enable-batch-mode",
+        "-serialize-diagnostics",
+        "-index-store-path",
+        "/Users/hong/Desktop/genui-ops/GenAIPrimitives/.build/arm64-apple-macosx/debug/index/store",
+        "-Onone",
+        "-enable-testing",
+        "-Xfrontend",
+        "-enable-cross-import-overlays",
+        "-j14",
+        "-DSWIFT_PACKAGE",
+        "-DDEBUG",
+        "-DSWIFT_MODULE_RESOURCE_BUNDLE_UNAVAILABLE",
+        "-module-cache-path",
+        "/Users/hong/Desktop/genui-ops/GenAIPrimitives/.build/arm64-apple-macosx/debug/ModuleCache",
+        "-parseable-output",
+        "-parse-as-library",
+        "-emit-objc-header",
+        "-emit-objc-header-path",
+        "/Users/hong/Desktop/genui-ops/GenAIPrimitives/.build/arm64-apple-macosx/debug/GenAIPrimitivesPackageTests.build/include/GenAIPrimitivesPackageTests-Swift.h",
+        "-plugin-path",
+        "/Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/lib/swift/host/plugins/testing",
+        "-sdk",
+        "/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX26.2.sdk",
+        "-F",
+        "/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/Library/Frameworks",
+        "-F",
+        "/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/Library/PrivateFrameworks",
+        "-I",
+        "/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/usr/lib",
+        "-L",
+        "/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/usr/lib",
+        "-g",
+        "-Xcc",
+        "-isysroot",
+        "-Xcc",
+        "/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX26.2.sdk",
+        "-Xcc",
+        "-F",
+        "-Xcc",
+        "/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/Library/Frameworks",
+        "-Xcc",
+        "-F",
+        "-Xcc",
+        "/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/Library/PrivateFrameworks",
+        "-Xcc",
+        "-fPIC",
+        "-Xcc",
+        "-g",
+        "-package-name",
+        "genaiprimitives"
+      ],
+      "outputFileMapPath" : "/Users/hong/Desktop/genui-ops/GenAIPrimitives/.build/arm64-apple-macosx/debug/GenAIPrimitivesPackageTests.build/output-file-map.json",
+      "outputs" : [
+        {
+          "kind" : "file",
+          "name" : "/Users/hong/Desktop/genui-ops/GenAIPrimitives/.build/arm64-apple-macosx/debug/GenAIPrimitivesPackageTests.build/runner.swift.o"
+        },
+        {
+          "kind" : "file",
+          "name" : "/Users/hong/Desktop/genui-ops/GenAIPrimitives/.build/arm64-apple-macosx/debug/Modules/GenAIPrimitivesPackageTests.swiftmodule"
+        }
+      ],
+      "prepareForIndexing" : false,
+      "sources" : [
+        "/Users/hong/Desktop/genui-ops/GenAIPrimitives/.build/arm64-apple-macosx/debug/GenAIPrimitivesPackageTests.derived/runner.swift"
+      ],
+      "tempsPath" : "/Users/hong/Desktop/genui-ops/GenAIPrimitives/.build/arm64-apple-macosx/debug/GenAIPrimitivesPackageTests.build",
+      "wholeModuleOptimization" : false
+    },
+    "C.GenAIPrimitivesTests-arm64-apple-macosx26.0-debug.module" : {
+      "executable" : "/Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/bin/swiftc",
+      "fileList" : "/Users/hong/Desktop/genui-ops/GenAIPrimitives/.build/arm64-apple-macosx/debug/GenAIPrimitivesTests.build/sources",
+      "importPath" : "/Users/hong/Desktop/genui-ops/GenAIPrimitives/.build/arm64-apple-macosx/debug/Modules",
+      "inputs" : [
+        {
+          "kind" : "file",
+          "name" : "/Users/hong/Desktop/genui-ops/GenAIPrimitives/Tests/GenAIPrimitivesTests/CustomPartTests.swift"
+        },
+        {
+          "kind" : "file",
+          "name" : "/Users/hong/Desktop/genui-ops/GenAIPrimitives/Tests/GenAIPrimitivesTests/ExampleTests.swift"
+        },
+        {
+          "kind" : "file",
+          "name" : "/Users/hong/Desktop/genui-ops/GenAIPrimitives/Tests/GenAIPrimitivesTests/GenAIPrimitivesTests.swift"
+        },
+        {
+          "kind" : "file",
+          "name" : "/Users/hong/Desktop/genui-ops/GenAIPrimitives/.build/arm64-apple-macosx/debug/swift-version--58304C5D6DBC2206.txt"
+        },
+        {
+          "kind" : "file",
+          "name" : "/Users/hong/Desktop/genui-ops/GenAIPrimitives/.build/arm64-apple-macosx/debug/Modules/GenAIPrimitives.swiftmodule"
+        },
+        {
+          "kind" : "file",
+          "name" : "/Users/hong/Desktop/genui-ops/GenAIPrimitives/.build/arm64-apple-macosx/debug/GenAIPrimitivesTests.build/sources"
+        }
+      ],
+      "isLibrary" : true,
+      "moduleName" : "GenAIPrimitivesTests",
+      "moduleOutputPath" : "/Users/hong/Desktop/genui-ops/GenAIPrimitives/.build/arm64-apple-macosx/debug/Modules/GenAIPrimitivesTests.swiftmodule",
+      "objects" : [
+        "/Users/hong/Desktop/genui-ops/GenAIPrimitives/.build/arm64-apple-macosx/debug/GenAIPrimitivesTests.build/CustomPartTests.swift.o",
+        "/Users/hong/Desktop/genui-ops/GenAIPrimitives/.build/arm64-apple-macosx/debug/GenAIPrimitivesTests.build/ExampleTests.swift.o",
+        "/Users/hong/Desktop/genui-ops/GenAIPrimitives/.build/arm64-apple-macosx/debug/GenAIPrimitivesTests.build/GenAIPrimitivesTests.swift.o"
+      ],
+      "otherArguments" : [
+        "-target",
+        "arm64-apple-macosx14.0",
+        "-incremental",
+        "-enable-batch-mode",
+        "-serialize-diagnostics",
+        "-index-store-path",
+        "/Users/hong/Desktop/genui-ops/GenAIPrimitives/.build/arm64-apple-macosx/debug/index/store",
+        "-Onone",
+        "-enable-testing",
+        "-Xfrontend",
+        "-enable-cross-import-overlays",
+        "-j14",
+        "-DSWIFT_PACKAGE",
+        "-DDEBUG",
+        "-DSWIFT_MODULE_RESOURCE_BUNDLE_UNAVAILABLE",
+        "-module-cache-path",
+        "/Users/hong/Desktop/genui-ops/GenAIPrimitives/.build/arm64-apple-macosx/debug/ModuleCache",
+        "-parseable-output",
+        "-parse-as-library",
+        "-swift-version",
+        "5",
+        "-plugin-path",
+        "/Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/lib/swift/host/plugins/testing",
+        "-sdk",
+        "/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX26.2.sdk",
+        "-F",
+        "/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/Library/Frameworks",
+        "-F",
+        "/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/Library/PrivateFrameworks",
+        "-I",
+        "/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/usr/lib",
+        "-L",
+        "/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/usr/lib",
+        "-g",
+        "-Xcc",
+        "-isysroot",
+        "-Xcc",
+        "/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX26.2.sdk",
+        "-Xcc",
+        "-F",
+        "-Xcc",
+        "/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/Library/Frameworks",
+        "-Xcc",
+        "-F",
+        "-Xcc",
+        "/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/Library/PrivateFrameworks",
+        "-Xcc",
+        "-fPIC",
+        "-Xcc",
+        "-g",
+        "-package-name",
+        "genaiprimitives"
+      ],
+      "outputFileMapPath" : "/Users/hong/Desktop/genui-ops/GenAIPrimitives/.build/arm64-apple-macosx/debug/GenAIPrimitivesTests.build/output-file-map.json",
+      "outputs" : [
+        {
+          "kind" : "file",
+          "name" : "/Users/hong/Desktop/genui-ops/GenAIPrimitives/.build/arm64-apple-macosx/debug/GenAIPrimitivesTests.build/CustomPartTests.swift.o"
+        },
+        {
+          "kind" : "file",
+          "name" : "/Users/hong/Desktop/genui-ops/GenAIPrimitives/.build/arm64-apple-macosx/debug/GenAIPrimitivesTests.build/ExampleTests.swift.o"
+        },
+        {
+          "kind" : "file",
+          "name" : "/Users/hong/Desktop/genui-ops/GenAIPrimitives/.build/arm64-apple-macosx/debug/GenAIPrimitivesTests.build/GenAIPrimitivesTests.swift.o"
+        },
+        {
+          "kind" : "file",
+          "name" : "/Users/hong/Desktop/genui-ops/GenAIPrimitives/.build/arm64-apple-macosx/debug/Modules/GenAIPrimitivesTests.swiftmodule"
+        }
+      ],
+      "prepareForIndexing" : false,
+      "sources" : [
+        "/Users/hong/Desktop/genui-ops/GenAIPrimitives/Tests/GenAIPrimitivesTests/CustomPartTests.swift",
+        "/Users/hong/Desktop/genui-ops/GenAIPrimitives/Tests/GenAIPrimitivesTests/ExampleTests.swift",
+        "/Users/hong/Desktop/genui-ops/GenAIPrimitives/Tests/GenAIPrimitivesTests/GenAIPrimitivesTests.swift"
+      ],
+      "tempsPath" : "/Users/hong/Desktop/genui-ops/GenAIPrimitives/.build/arm64-apple-macosx/debug/GenAIPrimitivesTests.build",
+      "wholeModuleOptimization" : false
+    }
+  },
+  "swiftFrontendCommands" : {
+
+  },
+  "swiftTargetScanArgs" : {
+    "GenAIPrimitives" : [
+      "/Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/bin/swiftc",
+      "-module-name",
+      "GenAIPrimitives",
+      "-package-name",
+      "genaiprimitives",
+      "-c",
+      "/Users/hong/Desktop/genui-ops/GenAIPrimitives/Sources/GenAIPrimitives/ChatMessage.swift",
+      "/Users/hong/Desktop/genui-ops/GenAIPrimitives/Sources/GenAIPrimitives/FinishStatus.swift",
+      "/Users/hong/Desktop/genui-ops/GenAIPrimitives/Sources/GenAIPrimitives/JSONValue.swift",
+      "/Users/hong/Desktop/genui-ops/GenAIPrimitives/Sources/GenAIPrimitives/Part.swift",
+      "/Users/hong/Desktop/genui-ops/GenAIPrimitives/Sources/GenAIPrimitives/Parts.swift",
+      "/Users/hong/Desktop/genui-ops/GenAIPrimitives/Sources/GenAIPrimitives/StandardPart.swift",
+      "/Users/hong/Desktop/genui-ops/GenAIPrimitives/Sources/GenAIPrimitives/ToolDefinition.swift",
+      "-I",
+      "/Users/hong/Desktop/genui-ops/GenAIPrimitives/.build/arm64-apple-macosx/debug/Modules",
+      "-target",
+      "arm64-apple-macosx10.13",
+      "-incremental",
+      "-enable-batch-mode",
+      "-serialize-diagnostics",
+      "-index-store-path",
+      "/Users/hong/Desktop/genui-ops/GenAIPrimitives/.build/arm64-apple-macosx/debug/index/store",
+      "-Onone",
+      "-enable-testing",
+      "-j14",
+      "-DSWIFT_PACKAGE",
+      "-DDEBUG",
+      "-DSWIFT_MODULE_RESOURCE_BUNDLE_UNAVAILABLE",
+      "-module-cache-path",
+      "/Users/hong/Desktop/genui-ops/GenAIPrimitives/.build/arm64-apple-macosx/debug/ModuleCache",
+      "-parseable-output",
+      "-parse-as-library",
+      "-emit-objc-header",
+      "-emit-objc-header-path",
+      "/Users/hong/Desktop/genui-ops/GenAIPrimitives/.build/arm64-apple-macosx/debug/GenAIPrimitives.build/include/GenAIPrimitives-Swift.h",
+      "-swift-version",
+      "5",
+      "-plugin-path",
+      "/Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/lib/swift/host/plugins/testing",
+      "-sdk",
+      "/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX26.2.sdk",
+      "-F",
+      "/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/Library/Frameworks",
+      "-F",
+      "/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/Library/PrivateFrameworks",
+      "-I",
+      "/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/usr/lib",
+      "-L",
+      "/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/usr/lib",
+      "-g",
+      "-Xcc",
+      "-isysroot",
+      "-Xcc",
+      "/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX26.2.sdk",
+      "-Xcc",
+      "-F",
+      "-Xcc",
+      "/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/Library/Frameworks",
+      "-Xcc",
+      "-F",
+      "-Xcc",
+      "/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/Library/PrivateFrameworks",
+      "-Xcc",
+      "-fPIC",
+      "-Xcc",
+      "-g",
+      "-package-name",
+      "genaiprimitives",
+      "-driver-use-frontend-path",
+      "/Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/bin/swiftc"
+    ],
+    "GenAIPrimitivesPackageTests" : [
+      "/Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/bin/swiftc",
+      "-module-name",
+      "GenAIPrimitivesPackageTests",
+      "-package-name",
+      "genaiprimitives",
+      "-c",
+      "/Users/hong/Desktop/genui-ops/GenAIPrimitives/.build/arm64-apple-macosx/debug/GenAIPrimitivesPackageTests.derived/runner.swift",
+      "-I",
+      "/Users/hong/Desktop/genui-ops/GenAIPrimitives/.build/arm64-apple-macosx/debug/Modules",
+      "-target",
+      "arm64-apple-macosx10.13",
+      "-incremental",
+      "-enable-batch-mode",
+      "-serialize-diagnostics",
+      "-index-store-path",
+      "/Users/hong/Desktop/genui-ops/GenAIPrimitives/.build/arm64-apple-macosx/debug/index/store",
+      "-Onone",
+      "-enable-testing",
+      "-Xfrontend",
+      "-enable-cross-import-overlays",
+      "-j14",
+      "-DSWIFT_PACKAGE",
+      "-DDEBUG",
+      "-DSWIFT_MODULE_RESOURCE_BUNDLE_UNAVAILABLE",
+      "-module-cache-path",
+      "/Users/hong/Desktop/genui-ops/GenAIPrimitives/.build/arm64-apple-macosx/debug/ModuleCache",
+      "-parseable-output",
+      "-parse-as-library",
+      "-emit-objc-header",
+      "-emit-objc-header-path",
+      "/Users/hong/Desktop/genui-ops/GenAIPrimitives/.build/arm64-apple-macosx/debug/GenAIPrimitivesPackageTests.build/include/GenAIPrimitivesPackageTests-Swift.h",
+      "-plugin-path",
+      "/Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/lib/swift/host/plugins/testing",
+      "-sdk",
+      "/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX26.2.sdk",
+      "-F",
+      "/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/Library/Frameworks",
+      "-F",
+      "/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/Library/PrivateFrameworks",
+      "-I",
+      "/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/usr/lib",
+      "-L",
+      "/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/usr/lib",
+      "-g",
+      "-Xcc",
+      "-isysroot",
+      "-Xcc",
+      "/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX26.2.sdk",
+      "-Xcc",
+      "-F",
+      "-Xcc",
+      "/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/Library/Frameworks",
+      "-Xcc",
+      "-F",
+      "-Xcc",
+      "/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/Library/PrivateFrameworks",
+      "-Xcc",
+      "-fPIC",
+      "-Xcc",
+      "-g",
+      "-package-name",
+      "genaiprimitives",
+      "-driver-use-frontend-path",
+      "/Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/bin/swiftc"
+    ],
+    "GenAIPrimitivesTests" : [
+      "/Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/bin/swiftc",
+      "-module-name",
+      "GenAIPrimitivesTests",
+      "-package-name",
+      "genaiprimitives",
+      "-c",
+      "/Users/hong/Desktop/genui-ops/GenAIPrimitives/Tests/GenAIPrimitivesTests/CustomPartTests.swift",
+      "/Users/hong/Desktop/genui-ops/GenAIPrimitives/Tests/GenAIPrimitivesTests/ExampleTests.swift",
+      "/Users/hong/Desktop/genui-ops/GenAIPrimitives/Tests/GenAIPrimitivesTests/GenAIPrimitivesTests.swift",
+      "-I",
+      "/Users/hong/Desktop/genui-ops/GenAIPrimitives/.build/arm64-apple-macosx/debug/Modules",
+      "-target",
+      "arm64-apple-macosx14.0",
+      "-incremental",
+      "-enable-batch-mode",
+      "-serialize-diagnostics",
+      "-index-store-path",
+      "/Users/hong/Desktop/genui-ops/GenAIPrimitives/.build/arm64-apple-macosx/debug/index/store",
+      "-Onone",
+      "-enable-testing",
+      "-Xfrontend",
+      "-enable-cross-import-overlays",
+      "-j14",
+      "-DSWIFT_PACKAGE",
+      "-DDEBUG",
+      "-DSWIFT_MODULE_RESOURCE_BUNDLE_UNAVAILABLE",
+      "-module-cache-path",
+      "/Users/hong/Desktop/genui-ops/GenAIPrimitives/.build/arm64-apple-macosx/debug/ModuleCache",
+      "-parseable-output",
+      "-parse-as-library",
+      "-swift-version",
+      "5",
+      "-plugin-path",
+      "/Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/lib/swift/host/plugins/testing",
+      "-sdk",
+      "/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX26.2.sdk",
+      "-F",
+      "/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/Library/Frameworks",
+      "-F",
+      "/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/Library/PrivateFrameworks",
+      "-I",
+      "/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/usr/lib",
+      "-L",
+      "/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/usr/lib",
+      "-g",
+      "-Xcc",
+      "-isysroot",
+      "-Xcc",
+      "/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX26.2.sdk",
+      "-Xcc",
+      "-F",
+      "-Xcc",
+      "/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/Library/Frameworks",
+      "-Xcc",
+      "-F",
+      "-Xcc",
+      "/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/Library/PrivateFrameworks",
+      "-Xcc",
+      "-fPIC",
+      "-Xcc",
+      "-g",
+      "-package-name",
+      "genaiprimitives",
+      "-driver-use-frontend-path",
+      "/Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/bin/swiftc"
+    ]
+  },
+  "targetDependencyMap" : {
+    "GenAIPrimitives" : [
+
+    ],
+    "GenAIPrimitivesPackageTests" : [
+      "GenAIPrimitivesTests",
+      "GenAIPrimitives"
+    ],
+    "GenAIPrimitivesTests" : [
+      "GenAIPrimitives"
+    ]
+  },
+  "testDiscoveryCommands" : {
+
+  },
+  "testEntryPointCommands" : {
+    "/Users/hong/Desktop/genui-ops/GenAIPrimitives/.build/arm64-apple-macosx/debug/GenAIPrimitivesPackageTests.derived/runner.swift" : {
+      "inputs" : [
+
+      ],
+      "outputs" : [
+        {
+          "kind" : "file",
+          "name" : "/Users/hong/Desktop/genui-ops/GenAIPrimitives/.build/arm64-apple-macosx/debug/GenAIPrimitivesPackageTests.derived/runner.swift"
+        }
+      ]
+    }
+  },
+  "traitConfiguration" : {
+    "default" : {
+
+    }
+  },
+  "writeCommands" : {
+    "/Users/hong/Desktop/genui-ops/GenAIPrimitives/.build/arm64-apple-macosx/debug/GenAIPrimitives.build/sources" : {
+      "alwaysOutOfDate" : false,
+      "inputs" : [
+        {
+          "kind" : "virtual",
+          "name" : "<sources-file-list>"
+        },
+        {
+          "kind" : "file",
+          "name" : "/Users/hong/Desktop/genui-ops/GenAIPrimitives/Sources/GenAIPrimitives/ChatMessage.swift"
+        },
+        {
+          "kind" : "file",
+          "name" : "/Users/hong/Desktop/genui-ops/GenAIPrimitives/Sources/GenAIPrimitives/FinishStatus.swift"
+        },
+        {
+          "kind" : "file",
+          "name" : "/Users/hong/Desktop/genui-ops/GenAIPrimitives/Sources/GenAIPrimitives/JSONValue.swift"
+        },
+        {
+          "kind" : "file",
+          "name" : "/Users/hong/Desktop/genui-ops/GenAIPrimitives/Sources/GenAIPrimitives/Part.swift"
+        },
+        {
+          "kind" : "file",
+          "name" : "/Users/hong/Desktop/genui-ops/GenAIPrimitives/Sources/GenAIPrimitives/Parts.swift"
+        },
+        {
+          "kind" : "file",
+          "name" : "/Users/hong/Desktop/genui-ops/GenAIPrimitives/Sources/GenAIPrimitives/StandardPart.swift"
+        },
+        {
+          "kind" : "file",
+          "name" : "/Users/hong/Desktop/genui-ops/GenAIPrimitives/Sources/GenAIPrimitives/ToolDefinition.swift"
+        }
+      ],
+      "outputFilePath" : "/Users/hong/Desktop/genui-ops/GenAIPrimitives/.build/arm64-apple-macosx/debug/GenAIPrimitives.build/sources"
+    },
+    "/Users/hong/Desktop/genui-ops/GenAIPrimitives/.build/arm64-apple-macosx/debug/GenAIPrimitivesPackageTests.build/sources" : {
+      "alwaysOutOfDate" : false,
+      "inputs" : [
+        {
+          "kind" : "virtual",
+          "name" : "<sources-file-list>"
+        },
+        {
+          "kind" : "file",
+          "name" : "/Users/hong/Desktop/genui-ops/GenAIPrimitives/.build/arm64-apple-macosx/debug/GenAIPrimitivesPackageTests.derived/runner.swift"
+        }
+      ],
+      "outputFilePath" : "/Users/hong/Desktop/genui-ops/GenAIPrimitives/.build/arm64-apple-macosx/debug/GenAIPrimitivesPackageTests.build/sources"
+    },
+    "/Users/hong/Desktop/genui-ops/GenAIPrimitives/.build/arm64-apple-macosx/debug/GenAIPrimitivesPackageTests.product/Objects.LinkFileList" : {
+      "alwaysOutOfDate" : false,
+      "inputs" : [
+        {
+          "kind" : "virtual",
+          "name" : "<link-file-list>"
+        },
+        {
+          "kind" : "file",
+          "name" : "/Users/hong/Desktop/genui-ops/GenAIPrimitives/.build/arm64-apple-macosx/debug/GenAIPrimitives.build/ChatMessage.swift.o"
+        },
+        {
+          "kind" : "file",
+          "name" : "/Users/hong/Desktop/genui-ops/GenAIPrimitives/.build/arm64-apple-macosx/debug/GenAIPrimitives.build/FinishStatus.swift.o"
+        },
+        {
+          "kind" : "file",
+          "name" : "/Users/hong/Desktop/genui-ops/GenAIPrimitives/.build/arm64-apple-macosx/debug/GenAIPrimitives.build/JSONValue.swift.o"
+        },
+        {
+          "kind" : "file",
+          "name" : "/Users/hong/Desktop/genui-ops/GenAIPrimitives/.build/arm64-apple-macosx/debug/GenAIPrimitives.build/Part.swift.o"
+        },
+        {
+          "kind" : "file",
+          "name" : "/Users/hong/Desktop/genui-ops/GenAIPrimitives/.build/arm64-apple-macosx/debug/GenAIPrimitives.build/Parts.swift.o"
+        },
+        {
+          "kind" : "file",
+          "name" : "/Users/hong/Desktop/genui-ops/GenAIPrimitives/.build/arm64-apple-macosx/debug/GenAIPrimitives.build/StandardPart.swift.o"
+        },
+        {
+          "kind" : "file",
+          "name" : "/Users/hong/Desktop/genui-ops/GenAIPrimitives/.build/arm64-apple-macosx/debug/GenAIPrimitives.build/ToolDefinition.swift.o"
+        },
+        {
+          "kind" : "file",
+          "name" : "/Users/hong/Desktop/genui-ops/GenAIPrimitives/.build/arm64-apple-macosx/debug/GenAIPrimitivesPackageTests.build/runner.swift.o"
+        },
+        {
+          "kind" : "file",
+          "name" : "/Users/hong/Desktop/genui-ops/GenAIPrimitives/.build/arm64-apple-macosx/debug/GenAIPrimitivesTests.build/CustomPartTests.swift.o"
+        },
+        {
+          "kind" : "file",
+          "name" : "/Users/hong/Desktop/genui-ops/GenAIPrimitives/.build/arm64-apple-macosx/debug/GenAIPrimitivesTests.build/ExampleTests.swift.o"
+        },
+        {
+          "kind" : "file",
+          "name" : "/Users/hong/Desktop/genui-ops/GenAIPrimitives/.build/arm64-apple-macosx/debug/GenAIPrimitivesTests.build/GenAIPrimitivesTests.swift.o"
+        }
+      ],
+      "outputFilePath" : "/Users/hong/Desktop/genui-ops/GenAIPrimitives/.build/arm64-apple-macosx/debug/GenAIPrimitivesPackageTests.product/Objects.LinkFileList"
+    },
+    "/Users/hong/Desktop/genui-ops/GenAIPrimitives/.build/arm64-apple-macosx/debug/GenAIPrimitivesTests.build/sources" : {
+      "alwaysOutOfDate" : false,
+      "inputs" : [
+        {
+          "kind" : "virtual",
+          "name" : "<sources-file-list>"
+        },
+        {
+          "kind" : "file",
+          "name" : "/Users/hong/Desktop/genui-ops/GenAIPrimitives/Tests/GenAIPrimitivesTests/CustomPartTests.swift"
+        },
+        {
+          "kind" : "file",
+          "name" : "/Users/hong/Desktop/genui-ops/GenAIPrimitives/Tests/GenAIPrimitivesTests/ExampleTests.swift"
+        },
+        {
+          "kind" : "file",
+          "name" : "/Users/hong/Desktop/genui-ops/GenAIPrimitives/Tests/GenAIPrimitivesTests/GenAIPrimitivesTests.swift"
+        }
+      ],
+      "outputFilePath" : "/Users/hong/Desktop/genui-ops/GenAIPrimitives/.build/arm64-apple-macosx/debug/GenAIPrimitivesTests.build/sources"
+    },
+    "/Users/hong/Desktop/genui-ops/GenAIPrimitives/.build/arm64-apple-macosx/debug/swift-version--58304C5D6DBC2206.txt" : {
+      "alwaysOutOfDate" : true,
+      "inputs" : [
+        {
+          "kind" : "virtual",
+          "name" : "<swift-get-version>"
+        },
+        {
+          "kind" : "file",
+          "name" : "/Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/bin/swiftc"
+        }
+      ],
+      "outputFilePath" : "/Users/hong/Desktop/genui-ops/GenAIPrimitives/.build/arm64-apple-macosx/debug/swift-version--58304C5D6DBC2206.txt"
+    }
+  }
+}

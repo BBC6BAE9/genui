@@ -12,15 +12,15 @@ enum MockData {
 
     static let travelImages: [String: String] = [
         "santorini": "santorini_panorama",
-        "tokyo": "tokyo_tower",
-        "paris": "eiffel_tower",
-        "bali": "bali_temple",
-        "new_york": "brooklyn_bridge",
-        "rome": "colosseum",
-        "london": "big_ben",
-        "sydney": "opera_house",
-        "mexico_city": "mexico_city",
-        "greece_food": "greece_food",
+        "tokyo": "edo_panorama_tokyo",
+        "paris": "eiffel_tower_construction_1888",
+        "bali": "bali_memorial",
+        "new_york": "brooklyn_bridge_new_york",
+        "indonesia": "borobudur_indonesia",
+        "thailand": "kata_noi_beach_phuket_thailand",
+        "utah": "canyonlands_national_park_utah",
+        "greece_fresco": "saffron_gatherers_fresco_santorini",
+        "greece_akrotiri": "akrotiri_spring_fresco_santorini",
     ]
 
     // MARK: - Inspiration Carousel

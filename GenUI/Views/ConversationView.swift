@@ -3,11 +3,12 @@
 // found in the LICENSE file.
 
 import SwiftUI
-import A2UI
+import A2UIV09
+import GenAIPrimitives
 
 /// The conversation list view showing messages and dynamic A2UI surfaces.
 struct ConversationView: View {
-    let messages: [ChatMessage]
+    let messages: [ConversationEntry]
     let viewModel: TravelPlannerViewModel
 
     var body: some View {
@@ -17,7 +18,7 @@ struct ConversationView: View {
                 if let text = message.text {
                     UserMessageBubble(text: text)
                 }
-            case .agent:
+            case .model, .system:
                 if message.isLoading {
                     LoadingBubble(statusText: message.statusText)
                 } else if let text = message.text {
@@ -45,13 +46,13 @@ private struct SurfaceListView: View {
         let _ = viewModel.surfaceUpdateCounter
 
         ForEach(surfaceIds, id: \.self) { surfaceId in
-            if let vm = viewModel.surfaceManager.surfaces[surfaceId],
+            if let vm = viewModel.surfaceViewModels[surfaceId],
                let rootNode = vm.componentTree {
-                A2UIComponentView(node: rootNode, viewModel: vm)
+                A2UIComponentView(node: rootNode, surface: vm.surface)
                     .environment(\.a2uiActionHandler) { action in
                         viewModel.handleAction(action, surfaceId: surfaceId)
                     }
-                    .a2uiCustomComponents(travelCustomRenderer)
+                    .a2uiCustomComponentsV09(travelCustomRenderer)
                     .padding(.vertical, 4)
             }
         }
@@ -66,42 +67,58 @@ struct UserMessageBubble: View {
     var body: some View {
         HStack {
             Spacer(minLength: 60)
-            VStack(alignment: .trailing, spacing: 4) {
+            HStack(spacing: 8) {
                 Text(text)
                     .font(.body)
-                    .padding(.horizontal, 14)
-                    .padding(.vertical, 10)
-                    .background(Color.accentColor)
-                    .foregroundStyle(.white)
-                    .clipShape(RoundedRectangle(cornerRadius: 18))
+                Image(systemName: "person.fill")
             }
+            .padding(12)
+            .background(.regularMaterial)
+            .clipShape(
+                UnevenRoundedRectangle(
+                    topLeadingRadius: 25,
+                    bottomLeadingRadius: 25,
+                    bottomTrailingRadius: 25,
+                    topTrailingRadius: 5
+                )
+            )
+            .shadow(color: .black.opacity(0.1), radius: 2, x: 0, y: 1)
         }
-        .padding(.horizontal)
-        .padding(.vertical, 2)
+        .padding(.vertical, 4)
+        .padding(.horizontal, 8)
     }
 }
 
+/// Model message bubble with Card style and robot icon.
+/// Mirrors Flutter's `ChatMessageView` with `Icons.smart_toy_outlined`.
 struct ModelMessageBubble: View {
     let text: String
 
     var body: some View {
         HStack {
-            HStack(alignment: .top, spacing: 8) {
-                Image(systemName: "sparkles")
-                    .font(.caption)
-                    .foregroundStyle(.blue)
-                    .padding(.top, 3)
-
-                Text(text)
-                    .font(.body)
-                    .padding(.horizontal, 14)
-                    .padding(.vertical, 10)
-                    .clipShape(RoundedRectangle(cornerRadius: 18))
+            HStack(spacing: 8) {
+                Image("smart_toy")
+                    .renderingMode(.template)
+                    .resizable()
+                    .scaledToFit()
+                    .frame(width: 22, height: 22)
+                MarkdownTextView(text: text)
             }
+            .padding(12)
+            .background(.regularMaterial)
+            .clipShape(
+                UnevenRoundedRectangle(
+                    topLeadingRadius: 5,
+                    bottomLeadingRadius: 25,
+                    bottomTrailingRadius: 25,
+                    topTrailingRadius: 25
+                )
+            )
+            .shadow(color: .black.opacity(0.1), radius: 2, x: 0, y: 1)
             Spacer(minLength: 60)
         }
-        .padding(.horizontal)
-        .padding(.vertical, 2)
+        .padding(.vertical, 4)
+        .padding(.horizontal, 8)
     }
 }
 
@@ -127,12 +144,38 @@ struct LoadingBubble: View {
     }
 }
 
+// MARK: - Markdown rendering
+
+/// Renders markdown text using iOS native AttributedString.
+/// Mirrors Flutter's `MarkdownWidget` (gpt_markdown) from utils.dart.
+struct MarkdownTextView: View {
+    let text: String
+
+    var body: some View {
+        if let attributed = try? AttributedString(
+            markdown: text,
+            options: AttributedString.MarkdownParsingOptions(
+                interpretedSyntax: .inlineOnlyPreservingWhitespace
+            )
+        ) {
+            Text(attributed)
+                .font(.body)
+                .tint(.blue)
+                .textSelection(.enabled)
+        } else {
+            Text(text)
+                .font(.body)
+        }
+    }
+}
+
 #Preview {
     ScrollView {
         ConversationView(
             messages: [
                 .agent("Welcome!"),
                 .user("Plan a trip to Greece"),
+                .agent("Here's a plan with **bold**, _italic_, and `code`.\n\n- Item 1\n- Item 2"),
             ],
             viewModel: TravelPlannerViewModel(transport: GeminiTravelTransport(apiKey: ""))
         )

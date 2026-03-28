@@ -3,7 +3,7 @@
 // found in the LICENSE file.
 
 import SwiftUI
-import A2UI
+import A2UIV09
 
 /// A horizontally scrolling carousel of travel option cards.
 /// Equivalent to the Flutter `TravelCarousel` catalog component.
@@ -65,13 +65,14 @@ struct TravelCarouselItemView: View {
 /// Renders a `TravelCarousel` from an A2UI `ComponentNode`.
 struct A2UITravelCarouselView: View {
     let node: ComponentNode
-    let viewModel: SurfaceViewModel
+    let children: [ComponentNode]
+    let surface: SurfaceModel
     @Environment(\.a2uiActionHandler) private var actionHandler
 
-    private var props: [String: AnyCodable] { node.payload.properties }
+    private var props: [String: AnyCodable] { node.instance.properties }
 
     var body: some View {
-        let title = A2UIHelpers.resolveString(props["title"], viewModel: viewModel, dataContextPath: node.dataContextPath)
+        let title = A2UIHelpers.resolveString(props["title"], surface: surface, dataContextPath: node.dataContextPath)
 
         VStack(alignment: .leading, spacing: 12) {
             if let title {
@@ -87,7 +88,17 @@ struct A2UITravelCarouselView: View {
                         carouselItemView(item: item)
                             .onTapGesture {
                                 if let action = item.action {
-                                    actionHandler?(action)
+                                    var ctx = action.context
+                                    ctx["description"] = .string(item.description)
+                                    if let listingSelectionId = item.listingSelectionId {
+                                        ctx["listingSelectionId"] = .string(listingSelectionId)
+                                    }
+                                    let enrichedAction = ResolvedAction(
+                                        name: action.name,
+                                        sourceComponentId: action.sourceComponentId,
+                                        context: ctx
+                                    )
+                                    actionHandler?(enrichedAction)
                                 }
                             }
                     }
@@ -100,6 +111,7 @@ struct A2UITravelCarouselView: View {
     private struct CarouselItem {
         let description: String
         let imageNode: ComponentNode?
+        let listingSelectionId: String?
         let action: ResolvedAction?
     }
 
@@ -107,15 +119,16 @@ struct A2UITravelCarouselView: View {
         guard case .array(let itemsArray) = props["items"] else { return [] }
         return itemsArray.compactMap { itemVal -> CarouselItem? in
             guard case .dictionary(let dict) = itemVal else { return nil }
-            let desc = dict["description"]?.stringValue ?? ""
+            let desc = A2UIHelpers.resolveString(dict["description"], surface: surface, dataContextPath: node.dataContextPath) ?? ""
             let imageChildId = dict["imageChildId"]?.stringValue
-            let imageNode = imageChildId.flatMap {
-                viewModel.buildComponentNode(for: $0, dataContextPath: node.dataContextPath)
+            let imageNode = imageChildId.flatMap { childId in
+                children.first { $0.baseComponentId == childId }
             }
+            let listingSelectionId = dict["listingSelectionId"]?.stringValue
 
-            let action = A2UIHelpers.resolveAction(dict["action"], node: node, viewModel: viewModel)
+            let action = A2UIHelpers.resolveAction(dict["action"], node: node, surface: surface)
 
-            return CarouselItem(description: desc, imageNode: imageNode, action: action)
+            return CarouselItem(description: desc, imageNode: imageNode, listingSelectionId: listingSelectionId, action: action)
         }
     }
 
@@ -123,7 +136,7 @@ struct A2UITravelCarouselView: View {
     private func carouselItemView(item: CarouselItem) -> some View {
         VStack(spacing: 0) {
             if let imageNode = item.imageNode {
-                A2UIComponentView(node: imageNode, viewModel: viewModel)
+                A2UIComponentView(node: imageNode, surface: surface)
                     .frame(width: 190, height: 150)
                     .clipped()
                     .clipShape(RoundedRectangle(cornerRadius: 12))

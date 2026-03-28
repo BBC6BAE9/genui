@@ -4,12 +4,13 @@
 
 import SwiftUI
 
-/// The root content view with a tab-based layout.
-/// Provides tabs for the AI chat planner and widget catalog.
+/// The root content view with a navigation-based layout.
+/// Provides navigation to the AI chat planner and widget catalog.
 struct ContentView: View {
     @AppStorage("geminiAPIKey") private var geminiAPIKey = ""
     @State private var travelViewId = UUID()
     @State private var showSettings = false
+    @State private var showCatalog = false
 
     /// Whether no API key has been provided.
     private var needsAPIKey: Bool {
@@ -17,59 +18,60 @@ struct ContentView: View {
     }
 
     var body: some View {
-        TabView {
-            Tab("Travel", systemImage: "airplane") {
-                NavigationStack {
-                    Group {
-                        if needsAPIKey {
-                            apiKeyPromptView
-                        } else {
-                            TravelPlannerView(
-                                geminiAPIKey: geminiAPIKey.trimmingCharacters(in: .whitespacesAndNewlines)
-                            )
-                            .id(travelViewId)
+        NavigationStack {
+            Group {
+                if needsAPIKey {
+                    apiKeyPromptView
+                } else {
+                    TravelPlannerView(
+                        geminiAPIKey: geminiAPIKey.trimmingCharacters(in: .whitespacesAndNewlines)
+                    )
+                    .id(travelViewId)
+                }
+            }
+            .navigationTitle("Agentic Travel")
+            .navigationSubtitle("SwiftUI GenUI")
+            #if !os(tvOS) && !os(macOS)
+            .navigationBarTitleDisplayMode(.inline)
+            #endif
+            .toolbar {
+                ToolbarItem() {
+                    HStack(spacing: 12) {
+                        Button {
+                            showCatalog = true
+                        } label: {
+                            Image(systemName: "square.grid.2x2")
                         }
-                    }
-                    .navigationTitle("Agentic Travel")
-                    .toolbar {
-                        ToolbarItem() {
-                            Image(systemName: "line.3.horizontal")
-                        }
-                        ToolbarItem() {
-                            HStack(spacing: 12) {
-                                Button {
-                                    showSettings = true
-                                } label: {
-                                    Image(systemName: "gear")
-                                }
-                                Image(systemName: "person.circle")
-                            }
-                        }
-                    }
-                    .sheet(isPresented: $showSettings) {
-                        NavigationStack {
-                            SettingsView(
-                                geminiAPIKey: $geminiAPIKey,
-                                onApply: {
-                                    travelViewId = UUID()
-                                    showSettings = false
-                                }
-                            )
-                            .navigationTitle("Settings")
-                            .toolbar {
-                                ToolbarItem(placement: .cancellationAction) {
-                                    Button("Close") { showSettings = false }
-                                }
-                            }
+                        Button {
+                            showSettings = true
+                        } label: {
+                            Image(systemName: "key")
                         }
                     }
                 }
             }
-
-            Tab("Widget Catalog", systemImage: "square.grid.2x2") {
+            .navigationDestination(isPresented: $showCatalog) {
+                CatalogView()
+                    .navigationTitle("Widget Catalog")
+                    #if !os(tvOS) && !os(macOS)
+                    .navigationBarTitleDisplayMode(.inline)
+                    #endif
+            }
+            .sheet(isPresented: $showSettings) {
                 NavigationStack {
-                    CatalogView()
-                        .navigationTitle("Widget Catalog")
+                    SettingsView(
+                        geminiAPIKey: $geminiAPIKey,
+                        onApply: {
+                            travelViewId = UUID()
+                            showSettings = false
+                        }
+                    )
+                    .navigationTitle("Settings")
+                    .toolbar {
+                        ToolbarItem(placement: .cancellationAction) {
+                            Button("Close") { showSettings = false }
+                        }
+                    }
                 }
             }
         }
@@ -78,7 +80,7 @@ struct ContentView: View {
     /// Shown when no API key has been entered.
     private var apiKeyPromptView: some View {
         VStack(spacing: 20) {
-            Image(systemName: "key.fill")
+            Image(systemName: "key")
                 .font(.system(size: 48))
                 .foregroundStyle(.secondary)
 

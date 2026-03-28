@@ -3,28 +3,28 @@
 // found in the LICENSE file.
 
 import Foundation
-import A2UI
+import A2UIV09
 
-/// Builds A2UI protocol messages (`ServerToClientMessage`) from mock travel data.
+/// Builds A2UI protocol messages (`A2uiMessage`) from mock travel data.
 /// Uses v0.9 message format: `createSurface` + `updateComponents`.
-enum MockA2UIMessages {
+enum MockServerToClientMessages {
 
     // MARK: - JSON Decoding Helper
 
-    /// Decode a JSON dictionary into a `ServerToClientMessage`.
+    /// Decode a JSON dictionary into an `A2uiMessage`.
     /// Public so CatalogView can use the same decoding logic.
-    static func decodeMessage(_ json: [String: Any]) -> ServerToClientMessage? {
+    static func decodeMessage(_ json: [String: Any]) -> A2uiMessage? {
         guard let data = try? JSONSerialization.data(withJSONObject: json) else { return nil }
-        return try? JSONDecoder().decode(ServerToClientMessage.self, from: data)
+        return try? JSONDecoder().decode(A2uiMessage.self, from: data)
     }
 
     /// Build `createSurface` + `updateComponents` messages from component JSON arrays.
     private static func buildMessages(
         surfaceId: String,
         components: [[String: Any]]
-    ) -> [ServerToClientMessage] {
-        var result: [ServerToClientMessage] = []
-        if let create = decodeMessage(["createSurface": ["surfaceId": surfaceId]]) {
+    ) -> [A2uiMessage] {
+        var result: [A2uiMessage] = []
+        if let create = decodeMessage(["createSurface": ["surfaceId": surfaceId, "catalogId": "travel"]]) {
             result.append(create)
         }
         if let update = decodeMessage(["updateComponents": ["surfaceId": surfaceId, "components": components]]) {
@@ -35,7 +35,7 @@ enum MockA2UIMessages {
 
     // MARK: - Travel Carousel
 
-    static func travelCarousel(surfaceId: String, data: TravelCarouselData) -> [ServerToClientMessage] {
+    static func travelCarousel(surfaceId: String, data: TravelCarouselData) -> [A2uiMessage] {
         var items: [[String: Any]] = []
         for (index, item) in data.items.enumerated() {
             let imageId = "img_\(index)"
@@ -89,7 +89,7 @@ enum MockA2UIMessages {
 
     // MARK: - Information Card
 
-    static func informationCard(surfaceId: String, data: InformationCardData) -> [ServerToClientMessage] {
+    static func informationCard(surfaceId: String, data: InformationCardData) -> [A2uiMessage] {
         var rootProps: [String: Any] = [
             "title": data.title,
             "body": data.body
@@ -121,7 +121,7 @@ enum MockA2UIMessages {
 
     // MARK: - Itinerary
 
-    static func itinerary(surfaceId: String, data: ItineraryData) -> [ServerToClientMessage] {
+    static func itinerary(surfaceId: String, data: ItineraryData) -> [A2uiMessage] {
         let heroImageId = "hero_img"
 
         var allComponents: [[String: Any]] = []
@@ -189,7 +189,7 @@ enum MockA2UIMessages {
 
     // MARK: - Input Group
 
-    static func inputGroup(surfaceId: String, data: InputGroupData) -> [ServerToClientMessage] {
+    static func inputGroup(surfaceId: String, data: InputGroupData) -> [A2uiMessage] {
         var childIds: [String] = []
         var allComponents: [[String: Any]] = []
 
@@ -262,7 +262,7 @@ enum MockA2UIMessages {
 
     // MARK: - Trailhead
 
-    static func trailhead(surfaceId: String, data: TrailheadData) -> [ServerToClientMessage] {
+    static func trailhead(surfaceId: String, data: TrailheadData) -> [A2uiMessage] {
         let rootProps: [String: Any] = [
             "topics": data.topics,
             "action": ["event": ["name": data.actionName]]
@@ -277,7 +277,7 @@ enum MockA2UIMessages {
 
     // MARK: - Listings Booker
 
-    static func listingsBooker(surfaceId: String, data: ListingsBookerData) -> [ServerToClientMessage] {
+    static func listingsBooker(surfaceId: String, data: ListingsBookerData) -> [A2uiMessage] {
         let selectionIds = data.listings.map(\.listingSelectionId)
 
         let rootProps: [String: Any] = [

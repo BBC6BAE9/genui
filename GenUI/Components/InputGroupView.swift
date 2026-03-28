@@ -3,7 +3,7 @@
 // found in the LICENSE file.
 
 import SwiftUI
-import A2UI
+import A2UIV09
 
 /// A group of input chips with a submit button.
 /// Equivalent to the Flutter `InputGroup` catalog component.
@@ -80,9 +80,10 @@ struct FlowLayout: Layout {
     func placeSubviews(in bounds: CGRect, proposal: ProposedViewSize, subviews: Subviews, cache: inout ()) {
         let result = arrange(proposal: proposal, subviews: subviews)
         for (index, position) in result.positions.enumerated() {
+            let size = result.sizes[index]
             subviews[index].place(
                 at: CGPoint(x: bounds.minX + position.x, y: bounds.minY + position.y),
-                proposal: .unspecified
+                proposal: ProposedViewSize(size)
             )
         }
     }
@@ -90,32 +91,39 @@ struct FlowLayout: Layout {
     private struct ArrangeResult {
         var size: CGSize
         var positions: [CGPoint]
+        var sizes: [CGSize]
     }
 
     private func arrange(proposal: ProposedViewSize, subviews: Subviews) -> ArrangeResult {
         let maxWidth = proposal.width ?? .infinity
         var positions: [CGPoint] = []
+        var sizes: [CGSize] = []
         var currentX: CGFloat = 0
         var currentY: CGFloat = 0
         var lineHeight: CGFloat = 0
         var totalWidth: CGFloat = 0
 
         for subview in subviews {
-            let size = subview.sizeThatFits(.unspecified)
-            if currentX + size.width > maxWidth, currentX > 0 {
+            let idealSize = subview.sizeThatFits(.unspecified)
+            // Cap chip width to container width so text truncates naturally.
+            let chipWidth = min(idealSize.width, maxWidth)
+            let size = CGSize(width: chipWidth, height: idealSize.height)
+            if currentX + chipWidth > maxWidth, currentX > 0 {
                 currentX = 0
                 currentY += lineHeight + spacing
                 lineHeight = 0
             }
             positions.append(CGPoint(x: currentX, y: currentY))
+            sizes.append(size)
             lineHeight = max(lineHeight, size.height)
-            currentX += size.width + spacing
+            currentX += chipWidth + spacing
             totalWidth = max(totalWidth, currentX - spacing)
         }
 
         return ArrangeResult(
             size: CGSize(width: totalWidth, height: currentY + lineHeight),
-            positions: positions
+            positions: positions,
+            sizes: sizes
         )
     }
 }
@@ -135,23 +143,23 @@ struct FlowLayout: Layout {
 struct A2UIInputGroupView: View {
     let node: ComponentNode
     let children: [ComponentNode]
-    let viewModel: SurfaceViewModel
+    let surface: SurfaceModel
     @Environment(\.a2uiActionHandler) private var actionHandler
 
-    private var props: [String: AnyCodable] { node.payload.properties }
+    private var props: [String: AnyCodable] { node.instance.properties }
 
     var body: some View {
-        let submitLabel = A2UIHelpers.resolveString(props["submitLabel"], viewModel: viewModel, dataContextPath: node.dataContextPath) ?? "Submit"
+        let submitLabel = A2UIHelpers.resolveString(props["submitLabel"], surface: surface, dataContextPath: node.dataContextPath) ?? "Submit"
 
         VStack(alignment: .leading, spacing: 12) {
             FlowLayout(spacing: 8) {
                 ForEach(children) { child in
-                    A2UIComponentView(node: child, viewModel: viewModel)
+                    A2UIComponentView(node: child, surface: surface)
                 }
             }
 
             Button {
-                if let action = A2UIHelpers.resolveAction(props["action"], node: node, viewModel: viewModel) {
+                if let action = A2UIHelpers.resolveAction(props["action"], node: node, surface: surface) {
                     actionHandler?(action)
                 }
             } label: {

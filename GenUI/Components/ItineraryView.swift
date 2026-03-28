@@ -3,13 +3,14 @@
 // found in the LICENSE file.
 
 import SwiftUI
-import A2UI
+import A2UIV09
 
 /// Displays a multi-day travel itinerary as a compact card that expands
 /// to a full detail sheet. Equivalent to the Flutter `Itinerary` component.
 struct ItineraryView: View {
     let data: ItineraryData
     var onEntryAction: ((ItineraryEntryData) -> Void)?
+    var onViewDetails: (() -> Void)?
 
     @State private var isShowingDetail = false
 
@@ -20,8 +21,10 @@ struct ItineraryView: View {
         } label: {
             HStack(spacing: 12) {
                 if let imageView = data.imageView {
-                    imageView
+                    Color.clear
                         .frame(width: 100, height: 100)
+                        .overlay { imageView }
+                        .clipped()
                         .clipShape(RoundedRectangle(cornerRadius: 10))
                 } else {
                     let assetName = a2uiExtractAssetName(from: data.imageName)
@@ -55,7 +58,8 @@ struct ItineraryView: View {
         .sheet(isPresented: $isShowingDetail) {
             ItineraryDetailSheet(
                 data: data,
-                onEntryAction: onEntryAction
+                onEntryAction: onEntryAction,
+                onViewDetails: onViewDetails
             )
         }
     }
@@ -66,6 +70,7 @@ struct ItineraryView: View {
 struct ItineraryDetailSheet: View {
     let data: ItineraryData
     var onEntryAction: ((ItineraryEntryData) -> Void)?
+    var onViewDetails: (() -> Void)?
 
     @Environment(\.dismiss) private var dismiss
 
@@ -94,9 +99,10 @@ struct ItineraryDetailSheet: View {
                             .font(.title)
                             .fontWeight(.bold)
 
-                        Text(data.subheading)
-                            .font(.title3)
-                            .foregroundStyle(.secondary)
+                        Button("View Details") {
+                            onViewDetails?()
+                        }
+                        .buttonStyle(.borderedProminent)
                     }
                     .padding()
 
@@ -110,9 +116,14 @@ struct ItineraryDetailSheet: View {
                     }
                 }
             }
+            .ignoresSafeArea(edges: .top)
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) {
-                    Button("Close") { dismiss() }
+                    Button {
+                        dismiss()
+                    } label: {
+                        Image(systemName: "xmark")
+                    }
                 }
             }
         }
@@ -131,8 +142,10 @@ struct ItineraryDayView: View {
             // Day header
             HStack(spacing: 12) {
                 if let imageView = day.imageView {
-                    imageView
+                    Color.clear
                         .frame(width: 80, height: 80)
+                        .overlay { imageView }
+                        .clipped()
                         .clipShape(RoundedRectangle(cornerRadius: 8))
                 } else {
                     let assetName = a2uiExtractAssetName(from: day.imageName)
@@ -269,21 +282,20 @@ struct ItineraryEntryView: View {
 /// Renders an `Itinerary` from an A2UI `ComponentNode`.
 struct A2UIItineraryView: View {
     let node: ComponentNode
-    let viewModel: SurfaceViewModel
+    let children: [ComponentNode]
+    let surface: SurfaceModel
     @Environment(\.a2uiActionHandler) private var actionHandler
 
-    private var props: [String: AnyCodable] { node.payload.properties }
+    private var props: [String: AnyCodable] { node.instance.properties }
 
     var body: some View {
         let data = buildItineraryData()
         ItineraryView(data: data) { entry in
-            // When an entry with choiceRequired is tapped, fire the action
             if let actionHandler {
                 if let choiceAction = entry.choiceRequiredAction,
                    let resolved = resolveChoiceAction(choiceAction) {
                     actionHandler(resolved)
                 } else {
-                    // Fallback: use a default action
                     let action = ResolvedAction(
                         name: "chooseEntry",
                         sourceComponentId: node.id,
@@ -292,30 +304,34 @@ struct A2UIItineraryView: View {
                     actionHandler(action)
                 }
             }
+        } onViewDetails: {
+            actionHandler?(ResolvedAction(
+                name: "viewItinerary",
+                sourceComponentId: node.id,
+                context: [:]
+            ))
         }
         .padding(.horizontal)
     }
 
-    /// Resolve a choiceRequiredAction dictionary into a ResolvedAction.
     private func resolveChoiceAction(_ actionDict: [String: Any]) -> ResolvedAction? {
         guard let data = try? JSONSerialization.data(withJSONObject: actionDict),
               let codable = try? JSONDecoder().decode(AnyCodable.self, from: data) else {
             return nil
         }
-        return A2UIHelpers.resolveAction(codable, node: node, viewModel: viewModel)
+        return A2UIHelpers.resolveAction(codable, node: node, surface: surface)
     }
 
     private func buildItineraryData() -> ItineraryData {
-        let title = A2UIHelpers.resolveString(props["title"], viewModel: viewModel, dataContextPath: node.dataContextPath) ?? ""
-        let subheading = A2UIHelpers.resolveString(props["subheading"], viewModel: viewModel, dataContextPath: node.dataContextPath) ?? ""
-        let heroImageName = props["imageChildId"]?.stringValue.flatMap { childId in
-            viewModel.components[childId]?.component?.properties["url"]?.stringValue
-        } ?? "assets/travel_images/santorini_panorama.jpg"
-        let heroImageNode = props["imageChildId"]?.stringValue.flatMap {
-            viewModel.buildComponentNode(for: $0, dataContextPath: node.dataContextPath)
-        }
+        let title = A2UIHelpers.resolveString(props["title"], surface: surface, dataContextPath: node.dataContextPath) ?? ""
+        let subheading = A2UIHelpers.resolveString(props["subheading"], surface: surface, dataContextPath: node.dataContextPath) ?? ""
+
+        let heroImageChildId = props["imageChildId"]?.stringValue
+        let heroImageNode = heroImageChildId.flatMap { childId in children.first { $0.baseComponentId == childId } }
+        let heroImageName = heroImageNode?.instance.properties["url"]?.stringValue
+            ?? "assets/travel_images/santorini_panorama.jpg"
         let heroImageView = heroImageNode.map { n in
-            AnyView(A2UIComponentView(node: n, viewModel: viewModel))
+            AnyView(A2UIComponentView(node: n, surface: surface))
         }
 
         var days: [ItineraryDayData] = []
@@ -326,48 +342,32 @@ struct A2UIItineraryView: View {
                 let daySubtitle = dayDict["subtitle"]?.stringValue ?? ""
                 let dayDesc = dayDict["description"]?.stringValue ?? ""
                 let dayImageChildId = dayDict["imageChildId"]?.stringValue
-                let dayImageName = dayImageChildId.flatMap { childId in
-                    viewModel.components[childId]?.component?.properties["url"]?.stringValue
-                } ?? "assets/travel_images/akrotiri_spring_fresco_santorini.jpg"
-                let dayImageNode = dayImageChildId.flatMap {
-                    viewModel.buildComponentNode(for: $0, dataContextPath: node.dataContextPath)
-                }
+                let dayImageNode = dayImageChildId.flatMap { childId in children.first { $0.baseComponentId == childId } }
+                let dayImageName = dayImageNode?.instance.properties["url"]?.stringValue
+                    ?? "assets/travel_images/akrotiri_spring_fresco_santorini.jpg"
                 let dayImageView = dayImageNode.map { n in
-                    AnyView(A2UIComponentView(node: n, viewModel: viewModel))
+                    AnyView(A2UIComponentView(node: n, surface: surface))
                 }
 
                 var entries: [ItineraryEntryData] = []
                 if case .array(let entriesArray) = dayDict["entries"] {
                     for entryVal in entriesArray {
                         guard case .dictionary(let entryDict) = entryVal else { continue }
-                        let entryTitle = entryDict["title"]?.stringValue ?? ""
-                        let entrySubtitle = entryDict["subtitle"]?.stringValue
-                        let bodyText = entryDict["bodyText"]?.stringValue ?? ""
-                        let address = entryDict["address"]?.stringValue
-                        let time = entryDict["time"]?.stringValue ?? ""
-                        let totalCost = entryDict["totalCost"]?.stringValue
-                        let typeStr = entryDict["type"]?.stringValue ?? "activity"
-                        let statusStr = entryDict["status"]?.stringValue ?? "noBookingRequired"
-
-                        // Parse choiceRequiredAction if present
                         var choiceRequiredAction: [String: Any]?
-                        if case .dictionary(let actionDict) = entryDict["choiceRequiredAction"] {
-                            // Convert [String: AnyCodable] to [String: Any] for storage
-                            if let data = try? JSONEncoder().encode(AnyCodable.dictionary(actionDict)),
-                               let jsonObj = try? JSONSerialization.jsonObject(with: data) as? [String: Any] {
-                                choiceRequiredAction = jsonObj
-                            }
+                        if case .dictionary(let actionDict) = entryDict["choiceRequiredAction"],
+                           let data = try? JSONEncoder().encode(AnyCodable.dictionary(actionDict)),
+                           let jsonObj = try? JSONSerialization.jsonObject(with: data) as? [String: Any] {
+                            choiceRequiredAction = jsonObj
                         }
-
                         entries.append(ItineraryEntryData(
-                            title: entryTitle,
-                            subtitle: entrySubtitle,
-                            bodyText: bodyText,
-                            address: address,
-                            time: time,
-                            totalCost: totalCost,
-                            type: ItineraryEntryType(rawValue: typeStr) ?? .activity,
-                            status: ItineraryEntryStatus(rawValue: statusStr) ?? .noBookingRequired,
+                            title: entryDict["title"]?.stringValue ?? "",
+                            subtitle: entryDict["subtitle"]?.stringValue,
+                            bodyText: entryDict["bodyText"]?.stringValue ?? "",
+                            address: entryDict["address"]?.stringValue,
+                            time: entryDict["time"]?.stringValue ?? "",
+                            totalCost: entryDict["totalCost"]?.stringValue,
+                            type: ItineraryEntryType(rawValue: entryDict["type"]?.stringValue ?? "") ?? .activity,
+                            status: ItineraryEntryStatus(rawValue: entryDict["status"]?.stringValue ?? "") ?? .noBookingRequired,
                             choiceRequiredAction: choiceRequiredAction
                         ))
                     }

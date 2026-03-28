@@ -3,7 +3,7 @@
 // found in the LICENSE file.
 
 import SwiftUI
-import A2UI
+import A2UIV09
 
 /// Presents suggested follow-up topics as tappable chips.
 /// Equivalent to the Flutter `Trailhead` catalog component.
@@ -44,29 +44,27 @@ struct TabbedSectionsView: View {
 
     var body: some View {
         VStack(spacing: 0) {
-            // Tab bar
-            ScrollView(.horizontal, showsIndicators: false) {
-                HStack(spacing: 0) {
-                    ForEach(Array(titles.enumerated()), id: \.offset) { index, title in
-                        Button {
-                            withAnimation { selectedTab = index }
-                        } label: {
-                            Text(title)
-                                .font(.subheadline)
-                                .fontWeight(selectedTab == index ? .semibold : .regular)
-                                .foregroundStyle(selectedTab == index ? .primary : .secondary)
-                                .padding(.horizontal, 16)
-                                .padding(.vertical, 10)
-                                .overlay(alignment: .bottom) {
-                                    if selectedTab == index {
-                                        Rectangle()
-                                            .fill(Color.accentColor)
-                                            .frame(height: 2)
-                                    }
+            // Tab bar — tabs share width equally, matching Flutter's TabBar behavior
+            HStack(spacing: 0) {
+                ForEach(Array(titles.enumerated()), id: \.offset) { index, title in
+                    Button {
+                        withAnimation { selectedTab = index }
+                    } label: {
+                        Text(title)
+                            .font(.subheadline)
+                            .fontWeight(selectedTab == index ? .semibold : .regular)
+                            .foregroundStyle(selectedTab == index ? .primary : .secondary)
+                            .padding(.vertical, 10)
+                            .frame(maxWidth: .infinity)
+                            .overlay(alignment: .bottom) {
+                                if selectedTab == index {
+                                    Rectangle()
+                                        .fill(Color.accentColor)
+                                        .frame(height: 2)
                                 }
-                        }
-                        .buttonStyle(.plain)
+                            }
                     }
+                    .buttonStyle(.plain)
                 }
             }
 
@@ -202,10 +200,10 @@ struct ListingCardView: View {
             HStack(alignment: .top, spacing: 12) {
                 ZStack {
                     RoundedRectangle(cornerRadius: 8)
-                        .fill(Color.blue.opacity(0.15))
-                    Image(systemName: listing.imageName)
-                        .font(.title2)
-                        .foregroundStyle(.blue)
+                        .fill(Color.gray.opacity(0.15))
+                    Image(a2uiExtractAssetName(from: listing.imageName))
+                        .resizable()
+                        .aspectRatio(contentMode: .fill)
                 }
                 .frame(width: 70, height: 70)
                 .clipShape(RoundedRectangle(cornerRadius: 8))
@@ -285,19 +283,18 @@ struct ListingCardView: View {
 /// Renders a `Trailhead` from an A2UI `ComponentNode`.
 struct A2UITrailheadView: View {
     let node: ComponentNode
-    let viewModel: SurfaceViewModel
+    let surface: SurfaceModel
     @Environment(\.a2uiActionHandler) private var actionHandler
 
-    private var props: [String: AnyCodable] { node.payload.properties }
+    private var props: [String: AnyCodable] { node.instance.properties }
 
     var body: some View {
-        let topics = A2UIHelpers.resolveStringList(props["topics"], viewModel: viewModel, dataContextPath: node.dataContextPath)
+        let topics = A2UIHelpers.resolveStringList(props["topics"], surface: surface, dataContextPath: node.dataContextPath)
 
         FlowLayout(spacing: 8) {
             ForEach(topics, id: \.self) { topic in
                 Button {
-                    if let baseAction = A2UIHelpers.resolveAction(props["action"], node: node, viewModel: viewModel) {
-                        // Augment the action context with the selected topic
+                    if let baseAction = A2UIHelpers.resolveAction(props["action"], node: node, surface: surface) {
                         var ctx = baseAction.context
                         ctx["topic"] = .string(topic)
                         let action = ResolvedAction(
@@ -329,44 +326,54 @@ struct A2UITrailheadView: View {
 struct A2UITabbedSectionsView: View {
     let node: ComponentNode
     let children: [ComponentNode]
-    let viewModel: SurfaceViewModel
+    let surface: SurfaceModel
 
-    private var props: [String: AnyCodable] { node.payload.properties }
+    private var props: [String: AnyCodable] { node.instance.properties }
     @State private var selectedTab = 0
 
-    var body: some View {
-        let sections = parseSections()
+    private var sections: [SectionInfo] {
+        guard case .array(let sectionsArray) = props["sections"] else { return [] }
+        return sectionsArray.compactMap { sectionVal -> SectionInfo? in
+            guard case .dictionary(let dict) = sectionVal else { return nil }
+            let title = A2UIHelpers.resolveString(dict["title"], surface: surface, dataContextPath: node.dataContextPath) ?? ""
+            let childId = dict["child"]?.stringValue
+            let childNode: ComponentNode? = childId.flatMap { cid in
+                children.first { $0.baseComponentId == cid }
+            }
+            return SectionInfo(title: title, childNode: childNode)
+        }
+    }
 
+    var body: some View {
         VStack(spacing: 0) {
-            ScrollView(.horizontal, showsIndicators: false) {
-                HStack(spacing: 0) {
-                    ForEach(Array(sections.enumerated()), id: \.offset) { index, section in
-                        Button {
-                            withAnimation { selectedTab = index }
-                        } label: {
-                            Text(section.title)
-                                .font(.subheadline)
-                                .fontWeight(selectedTab == index ? .semibold : .regular)
-                                .foregroundStyle(selectedTab == index ? .primary : .secondary)
-                                .padding(.horizontal, 16)
-                                .padding(.vertical, 10)
-                                .overlay(alignment: .bottom) {
-                                    if selectedTab == index {
-                                        Rectangle()
-                                            .fill(Color.accentColor)
-                                            .frame(height: 2)
-                                    }
+            // Tab bar — tabs share width equally, matching Flutter's TabBar behavior
+            HStack(spacing: 0) {
+                ForEach(Array(sections.enumerated()), id: \.offset) { index, section in
+                    Button {
+                        withAnimation { selectedTab = index }
+                    } label: {
+                        Text(section.title)
+                            .font(.subheadline)
+                            .fontWeight(selectedTab == index ? .semibold : .regular)
+                            .foregroundStyle(selectedTab == index ? .primary : .secondary)
+                            .padding(.vertical, 10)
+                            .frame(maxWidth: .infinity)
+                            .overlay(alignment: .bottom) {
+                                if selectedTab == index {
+                                    Rectangle()
+                                        .fill(Color.accentColor)
+                                        .frame(height: 2)
                                 }
-                        }
-                        .buttonStyle(.plain)
+                            }
                     }
+                    .buttonStyle(.plain)
                 }
             }
 
             Divider()
 
             if selectedTab < sections.count, let childNode = sections[selectedTab].childNode {
-                A2UIComponentView(node: childNode, viewModel: viewModel)
+                A2UIComponentView(node: childNode, surface: surface)
             }
         }
     }
@@ -375,32 +382,21 @@ struct A2UITabbedSectionsView: View {
         let title: String
         let childNode: ComponentNode?
     }
-
-    private func parseSections() -> [SectionInfo] {
-        guard case .array(let sectionsArray) = props["sections"] else { return [] }
-        return sectionsArray.compactMap { sectionVal -> SectionInfo? in
-            guard case .dictionary(let dict) = sectionVal else { return nil }
-            let title = dict["title"]?.stringValue ?? ""
-            let childId = dict["child"]?.stringValue
-            let childNode = children.first { $0.id == childId }
-            return SectionInfo(title: title, childNode: childNode)
-        }
-    }
 }
 
 /// Renders a `ListingsBooker` from an A2UI `ComponentNode`.
 struct A2UIListingsBookerView: View {
     let node: ComponentNode
-    let viewModel: SurfaceViewModel
+    let surface: SurfaceModel
     @Environment(\.a2uiActionHandler) private var actionHandler
 
-    private var props: [String: AnyCodable] { node.payload.properties }
+    private var props: [String: AnyCodable] { node.instance.properties }
 
     @State private var listings: [HotelListing] = []
     @State private var initialized = false
 
     var body: some View {
-        let itineraryName = A2UIHelpers.resolveString(props["itineraryName"], viewModel: viewModel, dataContextPath: node.dataContextPath) ?? ""
+        let itineraryName = A2UIHelpers.resolveString(props["itineraryName"], surface: surface, dataContextPath: node.dataContextPath) ?? ""
         let hasModifyAction = props["modifyAction"] != nil
 
         ListingsBookerViewWrapper(
@@ -414,7 +410,7 @@ struct A2UIListingsBookerView: View {
                 ))
             },
             onModify: hasModifyAction ? { listing in
-                if let action = A2UIHelpers.resolveAction(props["modifyAction"], node: node, viewModel: viewModel) {
+                if let action = A2UIHelpers.resolveAction(props["modifyAction"], node: node, surface: surface) {
                     var ctx = action.context
                     ctx["listingSelectionId"] = .string(listing.listingSelectionId)
                     let modifiedAction = ResolvedAction(
@@ -429,7 +425,7 @@ struct A2UIListingsBookerView: View {
         .onAppear {
             guard !initialized else { return }
             initialized = true
-            let selectionIds = A2UIHelpers.resolveStringList(props["listingSelectionIds"], viewModel: viewModel, dataContextPath: node.dataContextPath)
+            let selectionIds = A2UIHelpers.resolveStringList(props["listingSelectionIds"], surface: surface, dataContextPath: node.dataContextPath)
             listings = MockData.hotelListings.filter { selectionIds.contains($0.listingSelectionId) }
         }
     }

@@ -45,16 +45,20 @@ struct TravelPlannerView: View {
                     }
                 }
             }
-
-            Divider()
-
-            ChatInputView(
-                text: $inputText,
-                isProcessing: viewModel.isProcessing
-            ) { text in
-                viewModel.sendMessage(text)
-                inputText = ""
+            .safeAreaInset(edge: .bottom) {
+                ChatInputView(
+                    text: $inputText,
+                    isProcessing: viewModel.isProcessing
+                ) { text in
+                    viewModel.sendMessage(text)
+                    inputText = ""
+                }
+                .background(
+                    Color.red
+                        .ignoresSafeArea(edges: .bottom)
+                )
             }
+            
         }
     }
 }

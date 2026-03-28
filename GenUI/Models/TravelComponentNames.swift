@@ -17,4 +17,19 @@ enum TravelComponentNames {
     static let checkboxFilterChipsInput = "CheckboxFilterChipsInput"
     static let dateInputChip = "DateInputChip"
     static let textInputChip = "TextInputChip"
+
+    /// All custom travel-catalog component type names.
+    static let allNames: [String] = [
+        travelCarousel,
+        itinerary,
+        informationCard,
+        inputGroup,
+        trailhead,
+        tabbedSections,
+        listingsBooker,
+        optionsFilterChipInput,
+        checkboxFilterChipsInput,
+        dateInputChip,
+        textInputChip,
+    ]
 }

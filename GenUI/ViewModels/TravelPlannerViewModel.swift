@@ -3,31 +3,63 @@
 // found in the LICENSE file.
 
 import SwiftUI
-import A2UI
+import A2UIV09
+import GenAIPrimitives
 
 /// The main view model managing the travel planning conversation.
 /// Uses the A2UI SDK to process server messages and render dynamic surfaces.
 ///
-/// Mirrors the Flutter architecture: a single persistent `SurfaceManager` receives
+/// Mirrors the Flutter architecture: a single persistent `MessageProcessor` receives
 /// all messages across the conversation, so surfaces can be updated in-place by
 /// subsequent `updateComponents` messages.
 @Observable
 final class TravelPlannerViewModel {
-    var messages: [ChatMessage] = []
+    var messages: [ConversationEntry] = []
     var isProcessing: Bool = false
 
     /// Bumped whenever surfaces are updated in-place to force SwiftUI re-renders.
     var surfaceUpdateCounter: Int = 0
 
-    /// Persistent surface manager — shared across the entire conversation,
-    /// matching Flutter's single `SurfaceController` pattern.
-    let surfaceManager = SurfaceManager()
+    /// The travel-app catalog (custom components + basic catalog functions).
+    static let travelCatalog = Catalog(
+        id: "https://a2ui.org/specification/v0_9/standard_catalog.json",
+        componentNames: basicCatalog.componentNames.union(Set(TravelComponentNames.allNames)),
+        functions: basicCatalog.functions
+    )
+
+    /// Persistent message processor — shared across the entire conversation.
+    /// Supports both the legacy short "travel" catalog ID (used in mocks)
+    /// and the canonical URL (used by the LLM).
+    let messageProcessor = MessageProcessor(
+        catalogs: [
+            travelCatalog,
+            // Legacy short-id alias so mock data with catalogId:"travel" still works.
+            Catalog(
+                id: "travel",
+                componentNames: basicCatalog.componentNames.union(Set(TravelComponentNames.allNames)),
+                functions: basicCatalog.functions
+            ),
+        ]
+    )
+
+    /// Per-surface SwiftUI view models, keyed by surfaceId.
+    /// Updated in sync with messageProcessor as surfaces are created/deleted.
+    var surfaceViewModels: [String: SurfaceViewModel] = [:]
+
+    /// Subscription token for surface creation events (kept alive for lifetime of viewModel).
+    private var surfaceCreatedSubscription: Subscription?
 
     private(set) var transport: TravelTransport
     private var contextId: String?
 
     init(transport: TravelTransport) {
         self.transport = transport
+        // Subscribe to surface creation to auto-create SurfaceViewModels
+        surfaceCreatedSubscription = messageProcessor.onSurfaceCreated { [weak self] surfaceModel in
+            guard let self else { return }
+            let vm = SurfaceViewModel(surface: surfaceModel)
+            self.surfaceViewModels[surfaceModel.id] = vm
+        }
     }
 
     // MARK: - Actions
@@ -43,13 +75,15 @@ final class TravelPlannerViewModel {
 
         Task { @MainActor in
             do {
-                if let stream = transport.sendTextStream(text, contextId: contextId) {
-                    await handleStream(stream, loadingIndex: loadingIndex)
-                } else {
-                    let response = try await transport.sendText(text, contextId: contextId)
-                    contextId = response.contextId ?? contextId
-                    handleTransportResponse(response, loadingIndex: loadingIndex)
+                let response = try await withRetry {
+                    if let stream = self.transport.sendTextStream(text, contextId: self.contextId) {
+                        return try await self.collectStream(stream, loadingIndex: loadingIndex)
+                    } else {
+                        return try await self.transport.sendText(text, contextId: self.contextId)
+                    }
                 }
+                contextId = response.contextId ?? contextId
+                handleTransportResponse(response, loadingIndex: loadingIndex)
             } catch {
                 replaceLoading(at: loadingIndex, with: .agent("Sorry, something went wrong: \(error.localizedDescription)"))
             }
@@ -73,13 +107,15 @@ final class TravelPlannerViewModel {
 
         Task { @MainActor in
             do {
-                if let stream = transport.sendActionStream(action, surfaceId: surfaceId, contextId: contextId) {
-                    await handleStream(stream, loadingIndex: loadingIndex)
-                } else {
-                    let response = try await transport.sendAction(action, surfaceId: surfaceId, contextId: contextId)
-                    contextId = response.contextId ?? contextId
-                    handleTransportResponse(response, loadingIndex: loadingIndex)
+                let response = try await withRetry {
+                    if let stream = self.transport.sendActionStream(action, surfaceId: surfaceId, contextId: self.contextId) {
+                        return try await self.collectStream(stream, loadingIndex: loadingIndex)
+                    } else {
+                        return try await self.transport.sendAction(action, surfaceId: surfaceId, contextId: self.contextId)
+                    }
                 }
+                contextId = response.contextId ?? contextId
+                handleTransportResponse(response, loadingIndex: loadingIndex)
             } catch {
                 replaceLoading(at: loadingIndex, with: .agent("Sorry, something went wrong: \(error.localizedDescription)"))
             }
@@ -91,63 +127,95 @@ final class TravelPlannerViewModel {
 
     /// Handle a transport response: process A2UI messages, show text, or handle in-place updates.
     private func handleTransportResponse(_ response: TransportResponse, loadingIndex: Int) {
-        if let agentMessage = processServerMessages(response.messages) {
-            replaceLoading(at: loadingIndex, with: agentMessage)
-        } else if let textResponse = response.textResponse {
-            // Gemini responded with text but no A2UI JSON — show as text bubble.
-            replaceLoading(at: loadingIndex, with: .agent(textResponse))
+        let agentMessage = processServerMessages(response.messages)
+        let hasText = response.textResponse?.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty == false
+
+        // Check if the loading slot was replaced by streaming text during collectStream
+        let slotHasStreamedText = loadingIndex < messages.count && messages[loadingIndex].role == .model && !messages[loadingIndex].isLoading && messages[loadingIndex].text != nil
+
+        if let agentMessage {
+            if slotHasStreamedText {
+                // Keep the streamed text and append the surface message after it
+                messages.append(agentMessage)
+            } else if hasText, let text = response.textResponse {
+                replaceLoading(at: loadingIndex, with: .agent(text))
+                messages.append(agentMessage)
+            } else {
+                replaceLoading(at: loadingIndex, with: agentMessage)
+            }
+        } else if hasText, let text = response.textResponse {
+            if !slotHasStreamedText {
+                replaceLoading(at: loadingIndex, with: .agent(text))
+            }
+        } else if slotHasStreamedText {
+            // Streaming text is already shown — nothing more to do
         } else {
             // In-place update only or empty response — remove loading
             removeLoading(at: loadingIndex)
         }
     }
 
-    /// Process server messages through the persistent SurfaceManager and build a ChatMessage.
-    /// Only newly created surfaces get added to a new ChatMessage.
-    /// Surfaces that are merely updated (via surfaceUpdate on an existing surfaceId)
-    /// are updated in-place in the SurfaceManager and re-rendered by the ChatMessage
-    /// that originally referenced them — matching Flutter's behavior.
-    private func processServerMessages(_ serverMessages: [ServerToClientMessage]) -> ChatMessage? {
+    /// Process server messages through the persistent MessageProcessor and build a ConversationEntry.
+    /// Only newly created surfaces get added to a new ConversationEntry.
+    /// Surfaces that are merely updated (via updateComponents on an existing surfaceId)
+    /// are updated in-place and re-rendered by the ConversationEntry that originally referenced them.
+    private func processServerMessages(_ serverMessages: [A2uiMessage]) -> ConversationEntry? {
         if serverMessages.isEmpty {
             return nil
         }
 
         // Track which surfaces are newly created vs merely updated
         var newSurfaceIds: [String] = []
-        var updatedSurfaceIds: [String] = []
+        var hasUpdates = false
         for msg in serverMessages {
-            if let br = msg.beginRendering, !newSurfaceIds.contains(br.surfaceId) {
-                newSurfaceIds.append(br.surfaceId)
+            if case .createSurface(let payload) = msg {
+                if !newSurfaceIds.contains(payload.surfaceId) {
+                    newSurfaceIds.append(payload.surfaceId)
+                }
+            } else {
+                hasUpdates = true
             }
-            if let su = msg.surfaceUpdate {
-                if !newSurfaceIds.contains(su.surfaceId) && !updatedSurfaceIds.contains(su.surfaceId) {
-                    updatedSurfaceIds.append(su.surfaceId)
+        }
+
+        // Process all messages through the MessageProcessor (creates SurfaceModels)
+        // and then forward each message to the corresponding SurfaceViewModel.
+        do {
+            messageProcessor.processMessages(serverMessages)
+
+            // For newly created surfaces, the SurfaceViewModel was auto-created
+            // by the onSurfaceCreated subscription in init. Now forward all messages to them.
+            for msg in serverMessages {
+                switch msg {
+                case .createSurface(let payload):
+                    try surfaceViewModels[payload.surfaceId]?.processMessage(msg)
+                case .updateComponents(let payload):
+                    try surfaceViewModels[payload.surfaceId]?.processMessage(msg)
+                case .updateDataModel(let payload):
+                    try surfaceViewModels[payload.surfaceId]?.processMessage(msg)
+                case .deleteSurface(let payload):
+                    try surfaceViewModels[payload.surfaceId]?.processMessage(msg)
+                    surfaceViewModels.removeValue(forKey: payload.surfaceId)
                 }
             }
-        }
-
-        do {
-            try surfaceManager.processMessages(serverMessages)
         } catch {
-            return .agent("Failed to render: \(error.localizedDescription)")
+            return ConversationEntry.agent("Failed to render: \(error.localizedDescription)")
         }
 
-        // Only create a new chat message for NEWLY created surfaces.
-        // Updated surfaces are already displayed by their original ChatMessage
-        // and will re-render automatically via the shared SurfaceManager.
         if newSurfaceIds.isEmpty {
             // All changes were in-place updates — bump counter to ensure re-render.
-            surfaceUpdateCounter += 1
+            if hasUpdates { surfaceUpdateCounter += 1 }
             return nil
         }
 
-        return .agentSurface(ids: newSurfaceIds)
+        return ConversationEntry.agentSurface(ids: newSurfaceIds)
     }
 
     private func handleStream(_ stream: AsyncThrowingStream<StreamEvent, Error>, loadingIndex: Int) async {
         do {
             for try await event in stream {
                 switch event {
+                case .textChunk:
+                    break // handled by collectStream
                 case .status(_, let text, _, let ctxId, _):
                     if let ctxId { contextId = ctxId }
                     if loadingIndex < messages.count {
@@ -155,8 +223,17 @@ final class TravelPlannerViewModel {
                     }
                 case .result(let result):
                     contextId = result.contextId ?? contextId
-                    if let agentMessage = processServerMessages(result.messages) {
-                        replaceLoading(at: loadingIndex, with: agentMessage)
+                    let agentMessage = processServerMessages(result.messages)
+                    let hasText = result.textResponse?.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty == false
+                    if let agentMessage {
+                        if hasText, let text = result.textResponse {
+                            replaceLoading(at: loadingIndex, with: .agent(text))
+                            messages.append(agentMessage)
+                        } else {
+                            replaceLoading(at: loadingIndex, with: agentMessage)
+                        }
+                    } else if hasText, let text = result.textResponse {
+                        replaceLoading(at: loadingIndex, with: .agent(text))
                     } else {
                         removeLoading(at: loadingIndex)
                     }
@@ -167,7 +244,102 @@ final class TravelPlannerViewModel {
         }
     }
 
-    private func replaceLoading(at index: Int, with message: ChatMessage) {
+    /// Collect a stream into a single TransportResponse.
+    ///
+    /// Mirrors Flutter's A2uiParserTransformer pipeline:
+    /// - `.text` events → streamed prose updates the chat bubble in real-time
+    /// - `.message` events → immediately processed by MessageProcessor (surfaces appear mid-stream)
+    ///
+    /// This means JSON blocks NEVER reach the UI as text, and surfaces render
+    /// as soon as the LLM finishes generating each JSON block — exactly like Flutter.
+    private func collectStream(_ stream: AsyncThrowingStream<StreamEvent, Error>, loadingIndex: Int) async throws -> TransportResponse {
+        var streamingText = ""
+
+        // Incremental parser — mirrors A2uiParserTransformer in Flutter.
+        let parser = A2UIStreamParser()
+
+        // Consume parser events concurrently while feeding chunks below.
+        let parserTask = Task { @MainActor in
+            for await event in parser.events {
+                switch event {
+                case .text(let chunk):
+                    // Prose text: update streaming bubble in real-time (JSON already stripped)
+                    let trimmed = chunk.trimmingCharacters(in: .whitespacesAndNewlines)
+                    guard !trimmed.isEmpty else { continue }
+                    streamingText += chunk
+                    if loadingIndex < self.messages.count {
+                        self.messages[loadingIndex] = ConversationEntry.agent(streamingText)
+                    }
+
+                case .message(let msg):
+                    // A2UI message: process immediately — mirrors Flutter's
+                    // incomingMessages → SurfaceController.handleMessage()
+                    if let agentMsg = self.processServerMessages([msg]) {
+                        self.messages.append(agentMsg)
+                    }
+
+                case .error:
+                    break
+                }
+            }
+        }
+
+        for try await event in stream {
+            switch event {
+            case .textChunk(let chunk):
+                // Feed through parser — it separates prose from JSON blocks
+                await parser.add(chunk)
+
+            case .status(_, let text, _, let ctxId, _):
+                if let ctxId { contextId = ctxId }
+                if loadingIndex < messages.count && messages[loadingIndex].isLoading {
+                    messages[loadingIndex].statusText = text ?? "Working..."
+                }
+
+            case .result(let r):
+                // Tool-use path: final messages from non-streaming follow-up call.
+                // Process any messages that weren't already handled inline.
+                if !r.messages.isEmpty {
+                    if let agentMsg = processServerMessages(r.messages) {
+                        messages.append(agentMsg)
+                    }
+                }
+                if let ctxId = r.contextId { contextId = ctxId }
+            }
+        }
+
+        // Flush any buffered text (e.g. trailing prose after last JSON block)
+        await parser.finish()
+        await parserTask.value
+
+        // Remove the loading/streaming bubble if nothing was shown
+        if loadingIndex < messages.count && messages[loadingIndex].isLoading {
+            removeLoading(at: loadingIndex)
+        }
+
+        // Return empty — all processing was done inline above
+        return TransportResponse(messages: [], contextId: nil, textResponse: nil)
+    }
+
+    /// Retry a network call up to 3 times on connection-lost errors (NSURLErrorNetworkConnectionLost / -1005).
+    private func withRetry<T>(maxAttempts: Int = 3, operation: @escaping () async throws -> T) async throws -> T {
+        var lastError: Error?
+        for attempt in 1...maxAttempts {
+            do {
+                return try await operation()
+            } catch let error as NSError where error.code == NSURLErrorNetworkConnectionLost || error.code == NSURLErrorNotConnectedToInternet {
+                lastError = error
+                if attempt < maxAttempts {
+                    let delay = Double(attempt) * 1.5
+                    print("[TravelVM] Network error (attempt \(attempt)/\(maxAttempts)), retrying in \(delay)s...")
+                    try? await Task.sleep(for: .seconds(delay))
+                }
+            }
+        }
+        throw lastError!
+    }
+
+    private func replaceLoading(at index: Int, with message: ConversationEntry) {
         if index < messages.count && messages[index].isLoading {
             messages[index] = message
         } else {
@@ -185,12 +357,6 @@ final class TravelPlannerViewModel {
     /// matching Flutter's pattern of including data model in system instructions.
     private func updateClientDataModel() {
         guard let geminiTransport = transport as? GeminiTravelTransport else { return }
-        var dataModel: [String: [String: AnyCodable]] = [:]
-        for (surfaceId, vm) in surfaceManager.surfaces {
-            if !vm.dataModel.isEmpty {
-                dataModel[surfaceId] = vm.dataModel
-            }
-        }
-        geminiTransport.clientDataModel = dataModel.isEmpty ? nil : dataModel
+        geminiTransport.clientDataModel = messageProcessor.getClientDataModel()
     }
 }

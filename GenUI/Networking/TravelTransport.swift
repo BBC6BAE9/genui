@@ -3,7 +3,7 @@
 // found in the LICENSE file.
 
 import Foundation
-import A2UI
+import A2UIV09
 
 /// Abstraction over agent communication.
 protocol TravelTransport {
@@ -16,8 +16,18 @@ protocol TravelTransport {
 
 /// Response from a non-streaming transport call.
 struct TransportResponse {
-    let messages: [ServerToClientMessage]
+    let messages: [A2uiMessage]
     let contextId: String?
     /// Optional plain text from the model when no A2UI messages were generated.
     var textResponse: String?
+}
+
+/// Events emitted by the streaming transport API.
+enum StreamEvent: Sendable {
+    /// A real-time text chunk from the model (mirrors Flutter's textResponseStream chunks).
+    case textChunk(String)
+    /// Intermediate status update (tool calls in progress, etc.).
+    case status(state: String, text: String?, taskId: String?, contextId: String?, isFinal: Bool)
+    /// Final result containing A2UI messages and optional full text.
+    case result(TransportResponse)
 }

@@ -3,7 +3,7 @@
 // found in the LICENSE file.
 
 import SwiftUI
-import A2UI
+import A2UIV09
 
 /// A chip for selecting a single option from a list of mutually exclusive options.
 /// Equivalent to the Flutter `OptionsFilterChipInput` catalog component.
@@ -28,6 +28,8 @@ struct OptionsFilterChipView: View {
                 }
                 Text(displayLabel)
                     .font(.subheadline)
+                    .lineLimit(1)
+                    .truncationMode(.tail)
                 Image(systemName: "chevron.down")
                     .font(.caption2)
             }
@@ -93,6 +95,7 @@ struct CheckboxFilterChipsView: View {
                 Text(displayLabel)
                     .font(.subheadline)
                     .lineLimit(1)
+                    .truncationMode(.tail)
                 Image(systemName: "chevron.down")
                     .font(.caption2)
             }
@@ -304,16 +307,16 @@ struct TextInputChipView: View {
 /// Renders an `OptionsFilterChipInput` from an A2UI `ComponentNode`.
 struct A2UIOptionsFilterChipView: View {
     let node: ComponentNode
-    let viewModel: SurfaceViewModel
+    let surface: SurfaceModel
 
-    private var props: [String: AnyCodable] { node.payload.properties }
+    private var props: [String: AnyCodable] { node.instance.properties }
 
     var body: some View {
-        let chipLabel = A2UIHelpers.resolveString(props["chipLabel"], viewModel: viewModel, dataContextPath: node.dataContextPath) ?? ""
-        let options = A2UIHelpers.resolveStringList(props["options"], viewModel: viewModel, dataContextPath: node.dataContextPath)
+        let chipLabel = A2UIHelpers.resolveString(props["chipLabel"], surface: surface, dataContextPath: node.dataContextPath) ?? ""
+        let options = A2UIHelpers.resolveStringList(props["options"], surface: surface, dataContextPath: node.dataContextPath)
         let iconNameStr = props["iconName"]?.stringValue
         let icon = iconNameStr.flatMap { TravelIcon(rawValue: $0) }
-        let currentValue = A2UIHelpers.resolveString(props["value"], viewModel: viewModel, dataContextPath: node.dataContextPath)
+        let currentValue = A2UIHelpers.resolveString(props["value"], surface: surface, dataContextPath: node.dataContextPath)
 
         OptionsFilterChipView(
             data: OptionsFilterChipData(
@@ -324,9 +327,7 @@ struct A2UIOptionsFilterChipView: View {
                 value: currentValue
             )
         ) { newValue in
-            // Store back to the component properties for later retrieval
-            // The value is stored on the node so the InputGroup can read it
-            node.payload.properties["value"] = newValue.map { .string($0) } ?? .null
+            node.instance.properties["value"] = newValue.map { .string($0) } ?? .null
         }
     }
 }
@@ -334,16 +335,16 @@ struct A2UIOptionsFilterChipView: View {
 /// Renders a `CheckboxFilterChipsInput` from an A2UI `ComponentNode`.
 struct A2UICheckboxFilterChipsView: View {
     let node: ComponentNode
-    let viewModel: SurfaceViewModel
+    let surface: SurfaceModel
 
-    private var props: [String: AnyCodable] { node.payload.properties }
+    private var props: [String: AnyCodable] { node.instance.properties }
 
     var body: some View {
-        let chipLabel = A2UIHelpers.resolveString(props["chipLabel"], viewModel: viewModel, dataContextPath: node.dataContextPath) ?? ""
-        let options = A2UIHelpers.resolveStringList(props["options"], viewModel: viewModel, dataContextPath: node.dataContextPath)
+        let chipLabel = A2UIHelpers.resolveString(props["chipLabel"], surface: surface, dataContextPath: node.dataContextPath) ?? ""
+        let options = A2UIHelpers.resolveStringList(props["options"], surface: surface, dataContextPath: node.dataContextPath)
         let iconNameStr = props["iconName"]?.stringValue
         let icon = iconNameStr.flatMap { TravelIcon(rawValue: $0) }
-        let selected = Set(A2UIHelpers.resolveStringList(props["selectedOptions"], viewModel: viewModel, dataContextPath: node.dataContextPath))
+        let selected = Set(A2UIHelpers.resolveStringList(props["selectedOptions"], surface: surface, dataContextPath: node.dataContextPath))
 
         CheckboxFilterChipsView(
             data: CheckboxFilterChipsData(
@@ -354,7 +355,7 @@ struct A2UICheckboxFilterChipsView: View {
                 selectedOptions: selected
             )
         ) { newSelected in
-            node.payload.properties["selectedOptions"] = .array(newSelected.sorted().map { .string($0) })
+            node.instance.properties["selectedOptions"] = .array(newSelected.sorted().map { .string($0) })
         }
     }
 }
@@ -362,13 +363,13 @@ struct A2UICheckboxFilterChipsView: View {
 /// Renders a `DateInputChip` from an A2UI `ComponentNode`.
 struct A2UIDateInputChipView: View {
     let node: ComponentNode
-    let viewModel: SurfaceViewModel
+    let surface: SurfaceModel
 
-    private var props: [String: AnyCodable] { node.payload.properties }
+    private var props: [String: AnyCodable] { node.instance.properties }
 
     var body: some View {
-        let label = A2UIHelpers.resolveString(props["label"], viewModel: viewModel, dataContextPath: node.dataContextPath) ?? "Date"
-        let dateStr = A2UIHelpers.resolveString(props["value"], viewModel: viewModel, dataContextPath: node.dataContextPath)
+        let label = A2UIHelpers.resolveString(props["label"], surface: surface, dataContextPath: node.dataContextPath) ?? "Date"
+        let dateStr = A2UIHelpers.resolveString(props["value"], surface: surface, dataContextPath: node.dataContextPath)
         let date = dateStr.flatMap { parseDateString($0) }
 
         DateInputChipView(
@@ -376,7 +377,7 @@ struct A2UIDateInputChipView: View {
         ) { newDate in
             let formatter = DateFormatter()
             formatter.dateFormat = "yyyy-MM-dd"
-            node.payload.properties["value"] = .string(formatter.string(from: newDate))
+            node.instance.properties["value"] = .string(formatter.string(from: newDate))
         }
     }
 
@@ -390,19 +391,19 @@ struct A2UIDateInputChipView: View {
 /// Renders a `TextInputChip` from an A2UI `ComponentNode`.
 struct A2UITextInputChipView: View {
     let node: ComponentNode
-    let viewModel: SurfaceViewModel
+    let surface: SurfaceModel
 
-    private var props: [String: AnyCodable] { node.payload.properties }
+    private var props: [String: AnyCodable] { node.instance.properties }
 
     var body: some View {
-        let label = A2UIHelpers.resolveString(props["label"], viewModel: viewModel, dataContextPath: node.dataContextPath) ?? "Text"
-        let value = A2UIHelpers.resolveString(props["value"], viewModel: viewModel, dataContextPath: node.dataContextPath)
-        let obscured = A2UIHelpers.resolveBool(props["obscured"], viewModel: viewModel, dataContextPath: node.dataContextPath) ?? false
+        let label = A2UIHelpers.resolveString(props["label"], surface: surface, dataContextPath: node.dataContextPath) ?? "Text"
+        let value = A2UIHelpers.resolveString(props["value"], surface: surface, dataContextPath: node.dataContextPath)
+        let obscured = A2UIHelpers.resolveBool(props["obscured"], surface: surface, dataContextPath: node.dataContextPath) ?? false
 
         TextInputChipView(
             data: TextInputChipData(id: node.id, label: label, value: value, obscured: obscured)
         ) { newValue in
-            node.payload.properties["value"] = .string(newValue)
+            node.instance.properties["value"] = .string(newValue)
         }
     }
 }

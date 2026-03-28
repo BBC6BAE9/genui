@@ -1,0 +1,54 @@
+{
+  "": {
+    "swift-dependencies": "/Users/hong/Desktop/genui-ops/GenAIPrimitives/.build/arm64-apple-macosx/debug/GenAIPrimitives.build/master.swiftdeps"
+  },
+  "/Users/hong/Desktop/genui-ops/GenAIPrimitives/Sources/GenAIPrimitives/ChatMessage.swift": {
+    "dependencies": "/Users/hong/Desktop/genui-ops/GenAIPrimitives/.build/arm64-apple-macosx/debug/GenAIPrimitives.build/ChatMessage.d",
+    "object": "/Users/hong/Desktop/genui-ops/GenAIPrimitives/.build/arm64-apple-macosx/debug/GenAIPrimitives.build/ChatMessage.swift.o",
+    "swiftmodule": "/Users/hong/Desktop/genui-ops/GenAIPrimitives/.build/arm64-apple-macosx/debug/GenAIPrimitives.build/ChatMessage~partial.swiftmodule",
+    "swift-dependencies": "/Users/hong/Desktop/genui-ops/GenAIPrimitives/.build/arm64-apple-macosx/debug/GenAIPrimitives.build/ChatMessage.swiftdeps",
+    "diagnostics": "/Users/hong/Desktop/genui-ops/GenAIPrimitives/.build/arm64-apple-macosx/debug/GenAIPrimitives.build/ChatMessage.dia"
+  },
+  "/Users/hong/Desktop/genui-ops/GenAIPrimitives/Sources/GenAIPrimitives/FinishStatus.swift": {
+    "dependencies": "/Users/hong/Desktop/genui-ops/GenAIPrimitives/.build/arm64-apple-macosx/debug/GenAIPrimitives.build/FinishStatus.d",
+    "object": "/Users/hong/Desktop/genui-ops/GenAIPrimitives/.build/arm64-apple-macosx/debug/GenAIPrimitives.build/FinishStatus.swift.o",
+    "swiftmodule": "/Users/hong/Desktop/genui-ops/GenAIPrimitives/.build/arm64-apple-macosx/debug/GenAIPrimitives.build/FinishStatus~partial.swiftmodule",
+    "swift-dependencies": "/Users/hong/Desktop/genui-ops/GenAIPrimitives/.build/arm64-apple-macosx/debug/GenAIPrimitives.build/FinishStatus.swiftdeps",
+    "diagnostics": "/Users/hong/Desktop/genui-ops/GenAIPrimitives/.build/arm64-apple-macosx/debug/GenAIPrimitives.build/FinishStatus.dia"
+  },
+  "/Users/hong/Desktop/genui-ops/GenAIPrimitives/Sources/GenAIPrimitives/JSONValue.swift": {
+    "dependencies": "/Users/hong/Desktop/genui-ops/GenAIPrimitives/.build/arm64-apple-macosx/debug/GenAIPrimitives.build/JSONValue.d",
+    "object": "/Users/hong/Desktop/genui-ops/GenAIPrimitives/.build/arm64-apple-macosx/debug/GenAIPrimitives.build/JSONValue.swift.o",
+    "swiftmodule": "/Users/hong/Desktop/genui-ops/GenAIPrimitives/.build/arm64-apple-macosx/debug/GenAIPrimitives.build/JSONValue~partial.swiftmodule",
+    "swift-dependencies": "/Users/hong/Desktop/genui-ops/GenAIPrimitives/.build/arm64-apple-macosx/debug/GenAIPrimitives.build/JSONValue.swiftdeps",
+    "diagnostics": "/Users/hong/Desktop/genui-ops/GenAIPrimitives/.build/arm64-apple-macosx/debug/GenAIPrimitives.build/JSONValue.dia"
+  },
+  "/Users/hong/Desktop/genui-ops/GenAIPrimitives/Sources/GenAIPrimitives/Part.swift": {
+    "dependencies": "/Users/hong/Desktop/genui-ops/GenAIPrimitives/.build/arm64-apple-macosx/debug/GenAIPrimitives.build/Part.d",
+    "object": "/Users/hong/Desktop/genui-ops/GenAIPrimitives/.build/arm64-apple-macosx/debug/GenAIPrimitives.build/Part.swift.o",
+    "swiftmodule": "/Users/hong/Desktop/genui-ops/GenAIPrimitives/.build/arm64-apple-macosx/debug/GenAIPrimitives.build/Part~partial.swiftmodule",
+    "swift-dependencies": "/Users/hong/Desktop/genui-ops/GenAIPrimitives/.build/arm64-apple-macosx/debug/GenAIPrimitives.build/Part.swiftdeps",
+    "diagnostics": "/Users/hong/Desktop/genui-ops/GenAIPrimitives/.build/arm64-apple-macosx/debug/GenAIPrimitives.build/Part.dia"
+  },
+  "/Users/hong/Desktop/genui-ops/GenAIPrimitives/Sources/GenAIPrimitives/Parts.swift": {
+    "dependencies": "/Users/hong/Desktop/genui-ops/GenAIPrimitives/.build/arm64-apple-macosx/debug/GenAIPrimitives.build/Parts.d",
+    "object": "/Users/hong/Desktop/genui-ops/GenAIPrimitives/.build/arm64-apple-macosx/debug/GenAIPrimitives.build/Parts.swift.o",
+    "swiftmodule": "/Users/hong/Desktop/genui-ops/GenAIPrimitives/.build/arm64-apple-macosx/debug/GenAIPrimitives.build/Parts~partial.swiftmodule",
+    "swift-dependencies": "/Users/hong/Desktop/genui-ops/GenAIPrimitives/.build/arm64-apple-macosx/debug/GenAIPrimitives.build/Parts.swiftdeps",
+    "diagnostics": "/Users/hong/Desktop/genui-ops/GenAIPrimitives/.build/arm64-apple-macosx/debug/GenAIPrimitives.build/Parts.dia"
+  },
+  "/Users/hong/Desktop/genui-ops/GenAIPrimitives/Sources/GenAIPrimitives/StandardPart.swift": {
+    "dependencies": "/Users/hong/Desktop/genui-ops/GenAIPrimitives/.build/arm64-apple-macosx/debug/GenAIPrimitives.build/StandardPart.d",
+    "object": "/Users/hong/Desktop/genui-ops/GenAIPrimitives/.build/arm64-apple-macosx/debug/GenAIPrimitives.build/StandardPart.swift.o",
+    "swiftmodule": "/Users/hong/Desktop/genui-ops/GenAIPrimitives/.build/arm64-apple-macosx/debug/GenAIPrimitives.build/StandardPart~partial.swiftmodule",
+    "swift-dependencies": "/Users/hong/Desktop/genui-ops/GenAIPrimitives/.build/arm64-apple-macosx/debug/GenAIPrimitives.build/StandardPart.swiftdeps",
+    "diagnostics": "/Users/hong/Desktop/genui-ops/GenAIPrimitives/.build/arm64-apple-macosx/debug/GenAIPrimitives.build/StandardPart.dia"
+  },
+  "/Users/hong/Desktop/genui-ops/GenAIPrimitives/Sources/GenAIPrimitives/ToolDefinition.swift": {
+    "dependencies": "/Users/hong/Desktop/genui-ops/GenAIPrimitives/.build/arm64-apple-macosx/debug/GenAIPrimitives.build/ToolDefinition.d",
+    "object": "/Users/hong/Desktop/genui-ops/GenAIPrimitives/.build/arm64-apple-macosx/debug/GenAIPrimitives.build/ToolDefinition.swift.o",
+    "swiftmodule": "/Users/hong/Desktop/genui-ops/GenAIPrimitives/.build/arm64-apple-macosx/debug/GenAIPrimitives.build/ToolDefinition~partial.swiftmodule",
+    "swift-dependencies": "/Users/hong/Desktop/genui-ops/GenAIPrimitives/.build/arm64-apple-macosx/debug/GenAIPrimitives.build/ToolDefinition.swiftdeps",
+    "diagnostics": "/Users/hong/Desktop/genui-ops/GenAIPrimitives/.build/arm64-apple-macosx/debug/GenAIPrimitives.build/ToolDefinition.dia"
+  }
+}

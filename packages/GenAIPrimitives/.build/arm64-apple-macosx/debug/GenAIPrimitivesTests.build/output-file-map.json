@@ -1,0 +1,26 @@
+{
+  "": {
+    "swift-dependencies": "/Users/hong/Desktop/genui-ops/GenAIPrimitives/.build/arm64-apple-macosx/debug/GenAIPrimitivesTests.build/master.swiftdeps"
+  },
+  "/Users/hong/Desktop/genui-ops/GenAIPrimitives/Tests/GenAIPrimitivesTests/CustomPartTests.swift": {
+    "dependencies": "/Users/hong/Desktop/genui-ops/GenAIPrimitives/.build/arm64-apple-macosx/debug/GenAIPrimitivesTests.build/CustomPartTests.d",
+    "object": "/Users/hong/Desktop/genui-ops/GenAIPrimitives/.build/arm64-apple-macosx/debug/GenAIPrimitivesTests.build/CustomPartTests.swift.o",
+    "swiftmodule": "/Users/hong/Desktop/genui-ops/GenAIPrimitives/.build/arm64-apple-macosx/debug/GenAIPrimitivesTests.build/CustomPartTests~partial.swiftmodule",
+    "swift-dependencies": "/Users/hong/Desktop/genui-ops/GenAIPrimitives/.build/arm64-apple-macosx/debug/GenAIPrimitivesTests.build/CustomPartTests.swiftdeps",
+    "diagnostics": "/Users/hong/Desktop/genui-ops/GenAIPrimitives/.build/arm64-apple-macosx/debug/GenAIPrimitivesTests.build/CustomPartTests.dia"
+  },
+  "/Users/hong/Desktop/genui-ops/GenAIPrimitives/Tests/GenAIPrimitivesTests/ExampleTests.swift": {
+    "dependencies": "/Users/hong/Desktop/genui-ops/GenAIPrimitives/.build/arm64-apple-macosx/debug/GenAIPrimitivesTests.build/ExampleTests.d",
+    "object": "/Users/hong/Desktop/genui-ops/GenAIPrimitives/.build/arm64-apple-macosx/debug/GenAIPrimitivesTests.build/ExampleTests.swift.o",
+    "swiftmodule": "/Users/hong/Desktop/genui-ops/GenAIPrimitives/.build/arm64-apple-macosx/debug/GenAIPrimitivesTests.build/ExampleTests~partial.swiftmodule",
+    "swift-dependencies": "/Users/hong/Desktop/genui-ops/GenAIPrimitives/.build/arm64-apple-macosx/debug/GenAIPrimitivesTests.build/ExampleTests.swiftdeps",
+    "diagnostics": "/Users/hong/Desktop/genui-ops/GenAIPrimitives/.build/arm64-apple-macosx/debug/GenAIPrimitivesTests.build/ExampleTests.dia"
+  },
+  "/Users/hong/Desktop/genui-ops/GenAIPrimitives/Tests/GenAIPrimitivesTests/GenAIPrimitivesTests.swift": {
+    "dependencies": "/Users/hong/Desktop/genui-ops/GenAIPrimitives/.build/arm64-apple-macosx/debug/GenAIPrimitivesTests.build/GenAIPrimitivesTests.d",
+    "object": "/Users/hong/Desktop/genui-ops/GenAIPrimitives/.build/arm64-apple-macosx/debug/GenAIPrimitivesTests.build/GenAIPrimitivesTests.swift.o",
+    "swiftmodule": "/Users/hong/Desktop/genui-ops/GenAIPrimitives/.build/arm64-apple-macosx/debug/GenAIPrimitivesTests.build/GenAIPrimitivesTests~partial.swiftmodule",
+    "swift-dependencies": "/Users/hong/Desktop/genui-ops/GenAIPrimitives/.build/arm64-apple-macosx/debug/GenAIPrimitivesTests.build/GenAIPrimitivesTests.swiftdeps",
+    "diagnostics": "/Users/hong/Desktop/genui-ops/GenAIPrimitives/.build/arm64-apple-macosx/debug/GenAIPrimitivesTests.build/GenAIPrimitivesTests.dia"
+  }
+}
