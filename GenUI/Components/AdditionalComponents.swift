@@ -36,47 +36,6 @@ struct TrailheadView: View {
 
 /// Organizes content into tabbed sections.
 /// Equivalent to the Flutter `TabbedSections` catalog component.
-struct TabbedSectionsView: View {
-    let titles: [String]
-    let contents: [AnyView]
-
-    @State private var selectedTab = 0
-
-    var body: some View {
-        VStack(spacing: 0) {
-            // Tab bar — tabs share width equally, matching Flutter's TabBar behavior
-            HStack(spacing: 0) {
-                ForEach(Array(titles.enumerated()), id: \.offset) { index, title in
-                    Button {
-                        withAnimation { selectedTab = index }
-                    } label: {
-                        Text(title)
-                            .font(.subheadline)
-                            .fontWeight(selectedTab == index ? .semibold : .regular)
-                            .foregroundStyle(selectedTab == index ? .primary : .secondary)
-                            .padding(.vertical, 10)
-                            .frame(maxWidth: .infinity)
-                            .overlay(alignment: .bottom) {
-                                if selectedTab == index {
-                                    Rectangle()
-                                        .fill(Color.accentColor)
-                                        .frame(height: 2)
-                                }
-                            }
-                    }
-                    .buttonStyle(.plain)
-                }
-            }
-
-            Divider()
-
-            // Content
-            if selectedTab < contents.count {
-                contents[selectedTab]
-            }
-        }
-    }
-}
 
 /// A checkout view for booking hotel listings.
 /// Equivalent to the Flutter `ListingsBooker` catalog component.
@@ -426,7 +385,7 @@ struct A2UIListingsBookerView: View {
             guard !initialized else { return }
             initialized = true
             let selectionIds = A2UIHelpers.resolveStringList(props["listingSelectionIds"], surface: surface, dataContextPath: node.dataContextPath)
-            listings = MockData.hotelListings.filter { selectionIds.contains($0.listingSelectionId) }
+            listings = selectionIds.compactMap { BookingService.instance.listing(for: $0) }
         }
     }
 }

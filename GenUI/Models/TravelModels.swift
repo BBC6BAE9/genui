@@ -3,6 +3,7 @@
 // found in the LICENSE file.
 
 import SwiftUI
+import A2UIV09
 
 // MARK: - Travel Icons
 
@@ -73,7 +74,8 @@ struct ItineraryData {
     let subheading: String
     let imageName: String
     let days: [ItineraryDayData]
-    var imageView: AnyView? = nil
+    var imageNode: ComponentNode? = nil
+    var surface: SurfaceModel? = nil
 }
 
 struct ItineraryDayData: Identifiable {
@@ -83,7 +85,8 @@ struct ItineraryDayData: Identifiable {
     let description: String
     let imageName: String
     let entries: [ItineraryEntryData]
-    var imageView: AnyView? = nil
+    var imageNode: ComponentNode? = nil
+    var surface: SurfaceModel? = nil
 }
 
 struct ItineraryEntryData: Identifiable {
@@ -160,16 +163,6 @@ struct TextInputChipData: Identifiable {
 struct TrailheadData {
     let topics: [String]
     let actionName: String
-}
-
-struct TabbedSectionData: Identifiable {
-    let id = UUID()
-    let title: String
-    let childSurfaceId: String
-}
-
-struct TabbedSectionsData {
-    let sections: [TabbedSectionData]
 }
 
 struct HotelListing: Identifiable {

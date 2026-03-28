@@ -39,13 +39,13 @@ struct A2UIList: View {
 
             ScrollView(isHorizontal ? .horizontal : .vertical) {
                 if isHorizontal {
-                    LazyHStack(alignment: a2uiVerticalAlignment(props.align?.rawValue)) {
+                    LazyHStack(alignment: a2uiVerticalAlignment(props.align?.rawValue), spacing: 0) {
                         ForEach(node.children) { child in
                             A2UIComponentView(node: child, surface: surface)
                         }
                     }
                 } else {
-                    LazyVStack(alignment: a2uiHorizontalAlignment(props.align?.rawValue)) {
+                    LazyVStack(alignment: a2uiHorizontalAlignment(props.align?.rawValue), spacing: 0) {
                         ForEach(node.children) { child in
                             A2UIComponentView(node: child, surface: surface)
                         }

@@ -20,6 +20,10 @@ final class TravelPlannerViewModel {
     /// Bumped whenever surfaces are updated in-place to force SwiftUI re-renders.
     var surfaceUpdateCounter: Int = 0
 
+    /// Bumped to signal the view should scroll to bottom.
+    /// Mirrors Flutter's explicit `_scrollToBottom()` calls in travel_planner_page.dart.
+    var scrollTrigger: Int = 0
+
     /// The travel-app catalog (custom components + basic catalog functions).
     static let travelCatalog = Catalog(
         id: "https://a2ui.org/specification/v0_9/standard_catalog.json",
@@ -62,6 +66,10 @@ final class TravelPlannerViewModel {
         }
     }
 
+    private func scrollToBottom() {
+        scrollTrigger += 1
+    }
+
     // MARK: - Actions
 
     func sendMessage(_ text: String) {
@@ -72,6 +80,7 @@ final class TravelPlannerViewModel {
         let loadingIndex = messages.count
         messages.append(.loading())
         isProcessing = true
+        scrollToBottom()
 
         Task { @MainActor in
             do {
@@ -86,6 +95,7 @@ final class TravelPlannerViewModel {
                 handleTransportResponse(response, loadingIndex: loadingIndex)
             } catch {
                 replaceLoading(at: loadingIndex, with: .agent("Sorry, something went wrong: \(error.localizedDescription)"))
+                scrollToBottom()
             }
             isProcessing = false
         }
@@ -100,6 +110,7 @@ final class TravelPlannerViewModel {
         let loadingIndex = messages.count
         messages.append(.loading(statusText: "Working..."))
         isProcessing = true
+        scrollToBottom()
 
         // Set the client data model on the transport so Gemini has full context
         // about the current UI state — matching Flutter's A2uiTransportAdapter.
@@ -118,6 +129,7 @@ final class TravelPlannerViewModel {
                 handleTransportResponse(response, loadingIndex: loadingIndex)
             } catch {
                 replaceLoading(at: loadingIndex, with: .agent("Sorry, something went wrong: \(error.localizedDescription)"))
+                scrollToBottom()
             }
             isProcessing = false
         }
@@ -153,6 +165,7 @@ final class TravelPlannerViewModel {
             // In-place update only or empty response — remove loading
             removeLoading(at: loadingIndex)
         }
+        scrollToBottom()
     }
 
     /// Process server messages through the persistent MessageProcessor and build a ConversationEntry.
@@ -174,6 +187,29 @@ final class TravelPlannerViewModel {
                 }
             } else {
                 hasUpdates = true
+            }
+        }
+
+        // Auto-create surfaces for updateComponents that reference a surface
+        // not yet created. In streaming mode, the model may emit updateComponents
+        // before (or without) a separate createSurface message. Flutter avoids
+        // this because it uses non-streaming generateContent and processes all
+        // JSON blocks at once.
+        for msg in serverMessages {
+            if case .updateComponents(let payload) = msg {
+                let sid = payload.surfaceId
+                if messageProcessor.model.getSurface(sid) == nil {
+                    let autoCreate = A2uiMessage.createSurface(CreateSurfacePayload(
+                        surfaceId: sid,
+                        catalogId: Self.travelCatalog.id,
+                        sendDataModel: true
+                    ))
+                    messageProcessor.processMessages([autoCreate])
+                    if !newSurfaceIds.contains(sid) {
+                        newSurfaceIds.append(sid)
+                    }
+                    print("[TravelVM] Auto-created surface '\(sid)' for orphan updateComponents")
+                }
             }
         }
 
@@ -203,45 +239,14 @@ final class TravelPlannerViewModel {
 
         if newSurfaceIds.isEmpty {
             // All changes were in-place updates — bump counter to ensure re-render.
-            if hasUpdates { surfaceUpdateCounter += 1 }
+            if hasUpdates {
+                surfaceUpdateCounter += 1
+                scrollToBottom()
+            }
             return nil
         }
 
         return ConversationEntry.agentSurface(ids: newSurfaceIds)
-    }
-
-    private func handleStream(_ stream: AsyncThrowingStream<StreamEvent, Error>, loadingIndex: Int) async {
-        do {
-            for try await event in stream {
-                switch event {
-                case .textChunk:
-                    break // handled by collectStream
-                case .status(_, let text, _, let ctxId, _):
-                    if let ctxId { contextId = ctxId }
-                    if loadingIndex < messages.count {
-                        messages[loadingIndex].statusText = text ?? "Working..."
-                    }
-                case .result(let result):
-                    contextId = result.contextId ?? contextId
-                    let agentMessage = processServerMessages(result.messages)
-                    let hasText = result.textResponse?.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty == false
-                    if let agentMessage {
-                        if hasText, let text = result.textResponse {
-                            replaceLoading(at: loadingIndex, with: .agent(text))
-                            messages.append(agentMessage)
-                        } else {
-                            replaceLoading(at: loadingIndex, with: agentMessage)
-                        }
-                    } else if hasText, let text = result.textResponse {
-                        replaceLoading(at: loadingIndex, with: .agent(text))
-                    } else {
-                        removeLoading(at: loadingIndex)
-                    }
-                }
-            }
-        } catch {
-            replaceLoading(at: loadingIndex, with: .agent("Stream error: \(error.localizedDescription)"))
-        }
     }
 
     /// Collect a stream into a single TransportResponse.
@@ -270,12 +275,14 @@ final class TravelPlannerViewModel {
                     if loadingIndex < self.messages.count {
                         self.messages[loadingIndex] = ConversationEntry.agent(streamingText)
                     }
+                    self.scrollToBottom()
 
                 case .message(let msg):
                     // A2UI message: process immediately — mirrors Flutter's
                     // incomingMessages → SurfaceController.handleMessage()
                     if let agentMsg = self.processServerMessages([msg]) {
                         self.messages.append(agentMsg)
+                        self.scrollToBottom()
                     }
 
                 case .error:
@@ -302,6 +309,7 @@ final class TravelPlannerViewModel {
                 if !r.messages.isEmpty {
                     if let agentMsg = processServerMessages(r.messages) {
                         messages.append(agentMsg)
+                        scrollToBottom()
                     }
                 }
                 if let ctxId = r.contextId { contextId = ctxId }

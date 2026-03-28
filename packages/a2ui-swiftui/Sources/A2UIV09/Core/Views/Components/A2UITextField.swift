@@ -37,6 +37,8 @@ struct A2UITextField: View {
     let node: ComponentNode
     let surface: SurfaceModel
 
+    @Environment(\.a2uiStyle) private var style
+
     private var dataContextPath: String { node.dataContextPath }
 
     var body: some View {
@@ -54,6 +56,7 @@ struct A2UITextField: View {
                 checksErrorMessage: checksError
             )
             .a2uiAccessibility(node.accessibility, dataContext: dc)
+            .padding(style.leafMargin)
         }
     }
 }

@@ -20,10 +20,9 @@ struct ItineraryView: View {
             isShowingDetail = true
         } label: {
             HStack(spacing: 12) {
-                if let imageView = data.imageView {
-                    Color.clear
+                if let node = data.imageNode, let surface = data.surface {
+                    A2UIComponentView(node: node, surface: surface)
                         .frame(width: 100, height: 100)
-                        .overlay { imageView }
                         .clipped()
                         .clipShape(RoundedRectangle(cornerRadius: 10))
                 } else {
@@ -79,19 +78,16 @@ struct ItineraryDetailSheet: View {
             ScrollView {
                 VStack(alignment: .leading, spacing: 0) {
                     // Hero image
-                    if let imageView = data.imageView {
-                        imageView
+                    if let node = data.imageNode, let surface = data.surface {
+                        A2UIComponentView(node: node, surface: surface)
                             .frame(height: 200)
                             .frame(maxWidth: .infinity)
                             .clipped()
                     } else {
                         let assetName = a2uiExtractAssetName(from: data.imageName)
                         Image(assetName)
-                            .resizable()
-                            .aspectRatio(contentMode: .fill)
-                            .frame(height: 200)
-                            .frame(maxWidth: .infinity)
-                            .clipped()
+                            .resizable(resizingMode: .stretch)
+                            .aspectRatio(contentMode: .fit)
                     }
 
                     VStack(alignment: .leading, spacing: 8) {
@@ -102,7 +98,7 @@ struct ItineraryDetailSheet: View {
                         Button("View Details") {
                             onViewDetails?()
                         }
-                        .buttonStyle(.borderedProminent)
+                        .buttonStyle(.bordered)
                     }
                     .padding()
 
@@ -141,10 +137,9 @@ struct ItineraryDayView: View {
         VStack(alignment: .leading, spacing: 12) {
             // Day header
             HStack(spacing: 12) {
-                if let imageView = day.imageView {
-                    Color.clear
+                if let node = day.imageNode, let surface = day.surface {
+                    A2UIComponentView(node: node, surface: surface)
                         .frame(width: 80, height: 80)
-                        .overlay { imageView }
                         .clipped()
                         .clipShape(RoundedRectangle(cornerRadius: 8))
                 } else {
@@ -166,7 +161,7 @@ struct ItineraryDayView: View {
                 }
             }
 
-            Text(day.description)
+            Text(markdownAttributed(day.description))
                 .font(.body)
                 .foregroundStyle(.secondary)
 
@@ -262,7 +257,7 @@ struct ItineraryEntryView: View {
                     .foregroundStyle(.secondary)
                 }
 
-                Text(entry.bodyText)
+                Text(markdownAttributed(entry.bodyText))
                     .font(.caption)
                     .foregroundStyle(.secondary)
                     .padding(.top, 2)
@@ -330,9 +325,6 @@ struct A2UIItineraryView: View {
         let heroImageNode = heroImageChildId.flatMap { childId in children.first { $0.baseComponentId == childId } }
         let heroImageName = heroImageNode?.instance.properties["url"]?.stringValue
             ?? "assets/travel_images/santorini_panorama.jpg"
-        let heroImageView = heroImageNode.map { n in
-            AnyView(A2UIComponentView(node: n, surface: surface))
-        }
 
         var days: [ItineraryDayData] = []
         if case .array(let daysArray) = props["days"] {
@@ -345,9 +337,6 @@ struct A2UIItineraryView: View {
                 let dayImageNode = dayImageChildId.flatMap { childId in children.first { $0.baseComponentId == childId } }
                 let dayImageName = dayImageNode?.instance.properties["url"]?.stringValue
                     ?? "assets/travel_images/akrotiri_spring_fresco_santorini.jpg"
-                let dayImageView = dayImageNode.map { n in
-                    AnyView(A2UIComponentView(node: n, surface: surface))
-                }
 
                 var entries: [ItineraryEntryData] = []
                 if case .array(let entriesArray) = dayDict["entries"] {
@@ -379,7 +368,8 @@ struct A2UIItineraryView: View {
                     description: dayDesc,
                     imageName: dayImageName,
                     entries: entries,
-                    imageView: dayImageView
+                    imageNode: dayImageNode,
+                    surface: dayImageNode != nil ? surface : nil
                 ))
             }
         }
@@ -389,7 +379,8 @@ struct A2UIItineraryView: View {
             subheading: subheading,
             imageName: heroImageName,
             days: days,
-            imageView: heroImageView
+            imageNode: heroImageNode,
+            surface: heroImageNode != nil ? surface : nil
         )
     }
 }

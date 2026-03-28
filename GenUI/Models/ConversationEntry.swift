@@ -37,9 +37,11 @@ struct ConversationEntry: Identifiable {
     }
 
     /// The text content of the underlying message, if any.
+    /// Trims leading/trailing whitespace so LLM responses that start with
+    /// newlines don't produce blank space at the top of message bubbles.
     var text: String? {
         guard let message else { return nil }
-        let t = message.text
+        let t = message.text.trimmingCharacters(in: .whitespacesAndNewlines)
         return t.isEmpty ? nil : t
     }
 

@@ -21,13 +21,18 @@ struct A2UICustom: View {
     @Environment(\.a2uiCustomComponentRendererV09) private var customRenderer
 
     var body: some View {
+        // Standard components observe property changes via typedProperties(),
+        // which accesses `node.instance` and establishes @Observable tracking.
+        // Custom components need the same observation — this is the SwiftUI
+        // equivalent of React v0.9's GenericBinder subscribing to
+        // componentModel.onUpdated via useSyncExternalStore.
+        let _ = node.instance
         if case .custom(let typeName) = node.type {
             if let renderer = customRenderer,
                let customView = renderer(typeName, node, node.children, surface) {
                 customView
             } else {
-                // Fallback: render children in a VStack
-                VStack(alignment: .leading, spacing: 8) {
+                VStack(alignment: .leading, spacing: 0) {
                     ForEach(node.children) { child in
                         A2UIComponentView(node: child, surface: surface)
                     }

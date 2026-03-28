@@ -34,6 +34,7 @@ struct A2UIText: View {
                 placeholderText(variant: props.variant)
                     .redacted(reason: .placeholder)
                     .a2uiAccessibility(node.accessibility, dataContext: dc)
+                    .padding(style.leafMargin)
             } else {
                 let resolved = dc.resolve(props.text)
                 let variant = props.variant
@@ -41,6 +42,7 @@ struct A2UIText: View {
 
                 styledText(resolved, variant: variant, override: override)
                     .a2uiAccessibility(node.accessibility, dataContext: dc)
+                    .padding(style.leafMargin)
             }
         }
     }

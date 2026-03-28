@@ -8,21 +8,6 @@ import Foundation
 /// Provides sample travel destinations, itineraries, and hotel listings.
 enum MockData {
 
-    // MARK: - Travel Images (bundled asset names)
-
-    static let travelImages: [String: String] = [
-        "santorini": "santorini_panorama",
-        "tokyo": "edo_panorama_tokyo",
-        "paris": "eiffel_tower_construction_1888",
-        "bali": "bali_memorial",
-        "new_york": "brooklyn_bridge_new_york",
-        "indonesia": "borobudur_indonesia",
-        "thailand": "kata_noi_beach_phuket_thailand",
-        "utah": "canyonlands_national_park_utah",
-        "greece_fresco": "saffron_gatherers_fresco_santorini",
-        "greece_akrotiri": "akrotiri_spring_fresco_santorini",
-    ]
-
     // MARK: - Inspiration Carousel
 
     static let inspirationCarousel = TravelCarouselData(
@@ -51,38 +36,6 @@ enum MockData {
                 imageName: "assets/travel_images/saffron_gatherers_fresco_santorini.jpg",
                 listingSelectionId: nil,
                 actionName: "selectExperience"
-            ),
-        ]
-    )
-
-    // MARK: - Destination Carousel
-
-    static let destinationCarousel = TravelCarouselData(
-        title: "Popular Destinations",
-        items: [
-            TravelCarouselItem(
-                description: "Santorini, Greece",
-                imageName: "assets/travel_images/santorini_panorama.jpg",
-                listingSelectionId: "santorini",
-                actionName: "selectDestination"
-            ),
-            TravelCarouselItem(
-                description: "Tokyo, Japan",
-                imageName: "assets/travel_images/edo_panorama_tokyo.jpg",
-                listingSelectionId: "tokyo",
-                actionName: "selectDestination"
-            ),
-            TravelCarouselItem(
-                description: "Paris, France",
-                imageName: "assets/travel_images/eiffel_tower_construction_1888.jpg",
-                listingSelectionId: "paris",
-                actionName: "selectDestination"
-            ),
-            TravelCarouselItem(
-                description: "Bali, Indonesia",
-                imageName: "assets/travel_images/borobudur_indonesia.jpg",
-                listingSelectionId: "bali",
-                actionName: "selectDestination"
             ),
         ]
     )
@@ -347,18 +300,6 @@ enum MockData {
             ),
         ]
     }()
-
-    static let hotelCarousel = TravelCarouselData(
-        title: nil,
-        items: hotelListings.map { hotel in
-            TravelCarouselItem(
-                description: hotel.description,
-                imageName: hotel.imageName,
-                listingSelectionId: hotel.listingSelectionId,
-                actionName: "selectHotel"
-            )
-        }
-    )
 
     static let listingsBooker = ListingsBookerData(
         itineraryName: "Dart and Flutter deep dive",

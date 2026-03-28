@@ -40,6 +40,7 @@ struct A2UIAudioPlayer: View {
                 apStyle: style.audioPlayerStyle
             )
             .a2uiAccessibility(node.accessibility, dataContext: dc)
+            .padding(style.leafMargin)
         }
     }
 }
