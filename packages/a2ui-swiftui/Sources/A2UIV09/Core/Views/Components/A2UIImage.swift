@@ -15,10 +15,22 @@
 import SwiftUI
 
 /// # Image
-/// Uses `AsyncImage` for remote URLs. Sizing is driven by `variant` (avatar/icon/header/etc.)
-/// with sensible defaults, overridable via `A2UIStyle.imageStyles`. The `fit` property maps to
-/// `contentMode` (.fit/.fill) plus `clipped()`. Avatar uses `Circle()` clip; others use
-/// `RoundedRectangle`. Placeholder shown on failure or invalid URL.
+///
+/// Renders an image from a remote URL or local asset path.
+///
+/// ## Sizing philosophy (aligned with A2UI spec + React v0.9 reference)
+///
+/// The Image component uses **flexible** sizing so that parent components can
+/// control the image's dimensions. Only `icon` and `avatar` variants use fixed
+/// dimensions; all others adapt to their container.
+///
+/// - `fit` controls **how pixels fill the box** (maps to `contentMode`).
+/// - `variant` provides **suggested** sizing as flexible constraints
+///   (`maxWidth`/`maxHeight`), not hard-coded frames.
+/// - Parent components can override sizing by applying their own `.frame()`.
+///
+/// This matches the A2UI spec implementation guide: "Ensure the component
+/// defaults to a flexible width so it fills its container."
 struct A2UIImage: View {
     let node: ComponentNode
     let surface: SurfaceModel
@@ -32,40 +44,37 @@ struct A2UIImage: View {
         if let props = try? node.typedProperties(ImageProperties.self) {
             let dc = DataContext(surface: surface, path: dataContextPath)
             let variant = props.variant
-            let defaults = defaultImageSizing(for: variant)
-            let override = style.imageStyles[variant?.rawValue ?? ""]
-            let sizing = ImageSizing(
-                width: override?.width ?? defaults.width,
-                height: override?.height ?? defaults.height
-            )
-            let radius = override?.cornerRadius ?? defaultCornerRadius(for: variant)
+            let sizing = resolvedSizing(for: variant)
+            let radius = style.imageStyles[variant?.rawValue ?? ""]?.cornerRadius
+                ?? defaultCornerRadius(for: variant)
 
             Group {
                 if dc.isUnresolvedBinding(props.url) {
-                    clippedImage(variant: variant, radius: radius, sizing: sizing) {
+                    variantContainer(variant: variant, radius: radius, sizing: sizing) {
                         imagePlaceholder(sizing)
                     }
                 } else {
                     let urlString = dc.resolve(props.url)
                     if let url = URL(string: urlString),
                        let scheme = url.scheme, ["http", "https"].contains(scheme) {
-                        clippedImage(variant: variant, radius: radius, sizing: sizing) {
+                        variantContainer(variant: variant, radius: radius, sizing: sizing) {
                             AsyncImage(url: url) { phase in
                                 switch phase {
                                 case .success(let image):
-                                    fitImage(image, fit: props.fit, sizing: sizing)
+                                    fitImage(image, fit: effectiveFit(props.fit, variant: variant))
                                 case .failure:
                                     imagePlaceholder(sizing)
                                 default:
-                                    ProgressView()
-                                        .frame(width: sizing.width, height: sizing.height)
+                                    placeholderFrame(sizing) {
+                                        ProgressView()
+                                    }
                                 }
                             }
                         }
                     } else if let resolver = imageResolver,
                               let image = resolver(urlString) {
-                        clippedImage(variant: variant, radius: radius, sizing: sizing) {
-                            fitImage(image, fit: props.fit, sizing: sizing)
+                        variantContainer(variant: variant, radius: radius, sizing: sizing) {
+                            fitImage(image, fit: effectiveFit(props.fit, variant: variant))
                         }
                     } else {
                         imagePlaceholder(sizing)
@@ -76,67 +85,138 @@ struct A2UIImage: View {
         }
     }
 
-    private struct ImageSizing {
-        var width: CGFloat?
-        var height: CGFloat
+    // MARK: - Sizing Model
+
+    /// Flexible sizing constraints. Uses optional values — `nil` means
+    /// "no constraint on this axis, let the parent decide."
+    struct FlexibleSizing {
+        var fixedWidth: CGFloat?
+        var fixedHeight: CGFloat?
+        var maxWidth: CGFloat?
+        var maxHeight: CGFloat?
+
+        var isFixedSize: Bool { fixedWidth != nil && fixedHeight != nil }
     }
 
-    private func defaultImageSizing(for variant: ImageVariant?) -> ImageSizing {
+    /// Resolves the effective sizing by merging style overrides with defaults.
+    private func resolvedSizing(for variant: ImageVariant?) -> FlexibleSizing {
+        let defaults = defaultSizing(for: variant)
+        guard let override = style.imageStyles[variant?.rawValue ?? ""] else {
+            return defaults
+        }
+        return FlexibleSizing(
+            fixedWidth: override.width ?? defaults.fixedWidth,
+            fixedHeight: override.height ?? defaults.fixedHeight,
+            maxWidth: override.maxWidth ?? defaults.maxWidth,
+            maxHeight: override.maxHeight ?? defaults.maxHeight
+        )
+    }
+
+    /// Default sizing per variant, aligned with A2UI spec implementation guide
+    /// and React v0.9 reference renderer.
+    private func defaultSizing(for variant: ImageVariant?) -> FlexibleSizing {
         switch variant {
-        case .icon:          return ImageSizing(width: 32, height: 32)
-        case .avatar:        return ImageSizing(width: 32, height: 32)
-        case .smallFeature:  return ImageSizing(width: 50, height: 50)
-        case .mediumFeature: return ImageSizing(width: nil, height: 150)
-        case .largeFeature:  return ImageSizing(width: nil, height: 400)
-        case .header:        return ImageSizing(width: nil, height: 240)
-        default:             return ImageSizing(width: nil, height: 150)
+        case .icon:
+            return FlexibleSizing(fixedWidth: 24, fixedHeight: 24)
+        case .avatar:
+            return FlexibleSizing(fixedWidth: 40, fixedHeight: 40)
+        case .smallFeature:
+            return FlexibleSizing(maxWidth: 100)
+        case .largeFeature:
+            return FlexibleSizing(maxHeight: 400)
+        case .header:
+            return FlexibleSizing(fixedHeight: 200)
+        case .mediumFeature, .none, .some(.unknown):
+            return FlexibleSizing()
         }
     }
 
     private func defaultCornerRadius(for variant: ImageVariant?) -> CGFloat {
-        variant == .avatar ? 0 : 4  // avatar uses Circle clip; radius unused
+        variant == .avatar ? 0 : 4
     }
 
-    private func clippedImage(
+    // MARK: - Variant Container
+
+    /// Applies sizing constraints and clip shape based on variant.
+    /// Uses flexible constraints so parent components can override sizing.
+    @ViewBuilder
+    private func variantContainer(
         variant: ImageVariant?,
         radius: CGFloat,
-        sizing: ImageSizing,
+        sizing: FlexibleSizing,
         @ViewBuilder content: () -> some View
     ) -> some View {
-        content()
-            .frame(width: sizing.width, height: sizing.height)
-            .frame(maxWidth: sizing.width == nil ? .infinity : nil)
-            .clipped()
-            .clipShape(variant == .avatar
-                ? AnyShape(Circle())
-                : AnyShape(RoundedRectangle(cornerRadius: radius)))
+        let clipShape: AnyShape = variant == .avatar
+            ? AnyShape(Circle())
+            : AnyShape(RoundedRectangle(cornerRadius: radius))
+
+        if sizing.isFixedSize {
+            content()
+                .frame(width: sizing.fixedWidth, height: sizing.fixedHeight)
+                .clipped()
+                .clipShape(clipShape)
+        } else {
+            content()
+                .frame(maxWidth: sizing.maxWidth ?? .infinity,
+                       maxHeight: sizing.maxHeight)
+                .frame(height: sizing.fixedHeight)
+                .clipped()
+                .clipShape(clipShape)
+        }
+    }
+
+    // MARK: - Fit
+
+    /// Maps `fit` to SwiftUI's resizable + contentMode.
+    /// Header variant forces `cover` per spec.
+    private func effectiveFit(_ fit: ImageFit?, variant: ImageVariant?) -> ImageFit {
+        if variant == .header { return .cover }
+        return fit ?? .fill
     }
 
     @ViewBuilder
-    private func fitImage(_ image: SwiftUI.Image, fit: ImageFit?, sizing: ImageSizing) -> some View {
+    private func fitImage(_ image: SwiftUI.Image, fit: ImageFit) -> some View {
         switch fit {
         case .cover:
             image.resizable().aspectRatio(contentMode: .fill)
         case .fill:
             image.resizable()
-        case .some(.none):
+        case .none:
             image
         case .scaleDown:
             image.resizable().aspectRatio(contentMode: .fit)
-                .frame(maxWidth: sizing.width, maxHeight: sizing.height)
         default:
             image.resizable().aspectRatio(contentMode: .fit)
         }
     }
 
-    private func imagePlaceholder(_ sizing: ImageSizing) -> some View {
-        RoundedRectangle(cornerRadius: 8)
+    // MARK: - Placeholder
+
+    /// Provides a reasonable frame for placeholder/loading states.
+    /// Uses fixed dimensions for fixed-size variants, otherwise a sensible
+    /// default height so the placeholder doesn't collapse to zero.
+    @ViewBuilder
+    private func placeholderFrame(
+        _ sizing: FlexibleSizing,
+        @ViewBuilder content: () -> some View
+    ) -> some View {
+        if sizing.isFixedSize {
+            content()
+                .frame(width: sizing.fixedWidth, height: sizing.fixedHeight)
+        } else {
+            content()
+                .frame(maxWidth: sizing.maxWidth ?? .infinity)
+                .frame(height: sizing.fixedHeight ?? min(sizing.maxHeight ?? 150, 150))
+        }
+    }
+
+    private func imagePlaceholder(_ sizing: FlexibleSizing) -> some View {
+        let isSmall = (sizing.fixedWidth ?? sizing.maxWidth ?? .infinity) < 50
+        return RoundedRectangle(cornerRadius: 8)
             .fill(Color.gray.opacity(0.15))
-            .frame(width: sizing.width, height: sizing.height)
-            .frame(maxWidth: sizing.width == nil ? .infinity : nil)
             .overlay {
                 Image(systemName: "photo")
-                    .font((sizing.width ?? .infinity) < 50 ? .caption : .largeTitle)
+                    .font(isSmall ? .caption : .largeTitle)
                     .foregroundStyle(.tertiary)
             }
     }

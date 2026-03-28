@@ -9,13 +9,14 @@ import A2UIV09
 /// Equivalent to the Flutter `InformationCard` catalog component.
 struct InformationCardView: View {
     let data: InformationCardData
-    var imageView: AnyView?
+    var imageNode: ComponentNode? = nil
+    var surface: SurfaceModel? = nil
 
     var body: some View {
         VStack(alignment: .leading, spacing: 0) {
             // Header image
-            if let imageView {
-                imageView
+            if let node = imageNode, let surface {
+                A2UIComponentView(node: node, surface: surface)
                     .frame(maxWidth: .infinity)
                     .frame(height: 200)
                     .clipped()
@@ -84,13 +85,6 @@ struct A2UIInformationCardView: View {
             )
         }()
 
-        let imageView: AnyView? = imageNode.map { n in
-            AnyView(
-                A2UIComponentView(node: n, surface: surface)
-                    .frame(height: 200)
-            )
-        }
-
         InformationCardView(
             data: InformationCardData(
                 title: title,
@@ -98,7 +92,8 @@ struct A2UIInformationCardView: View {
                 body: body,
                 imageName: nil
             ),
-            imageView: imageView
+            imageNode: imageNode,
+            surface: imageNode != nil ? surface : nil
         )
         .padding(.horizontal)
     }

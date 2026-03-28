@@ -316,18 +316,28 @@ public struct A2UIStyle: Equatable, Sendable {
     }
 
     /// Appearance overrides for a single image variant.
+    ///
+    /// Use `width`/`height` for fixed-size variants (icon, avatar).
+    /// Use `maxWidth`/`maxHeight` for flexible variants that should
+    /// adapt to their container while respecting upper bounds.
     public struct ImageStyle: Equatable, Sendable {
         public var width: CGFloat?
         public var height: CGFloat?
+        public var maxWidth: CGFloat?
+        public var maxHeight: CGFloat?
         public var cornerRadius: CGFloat?
 
         public init(
             width: CGFloat? = nil,
             height: CGFloat? = nil,
+            maxWidth: CGFloat? = nil,
+            maxHeight: CGFloat? = nil,
             cornerRadius: CGFloat? = nil
         ) {
             self.width = width
             self.height = height
+            self.maxWidth = maxWidth
+            self.maxHeight = maxHeight
             self.cornerRadius = cornerRadius
         }
     }
@@ -973,20 +983,26 @@ extension View {
     /// A2UIRendererView(manager: manager)
     ///     .a2uiImageStyle(for: .avatar, width: 48, height: 48, cornerRadius: 24)
     ///     .a2uiImageStyle(for: .header, height: 300)
+    ///     .a2uiImageStyle(for: .largeFeature, maxHeight: 500)
     /// ```
     ///
-    /// Only the properties you specify are overridden; the rest fall back to
-    /// built-in defaults. Multiple calls compose naturally.
+    /// Use `width`/`height` for fixed dimensions and `maxWidth`/`maxHeight`
+    /// for flexible upper bounds. Only the properties you specify are
+    /// overridden; the rest fall back to built-in defaults.
     public func a2uiImageStyle(
         for variant: A2UIStyle.ImageVariant,
         width: CGFloat? = nil,
         height: CGFloat? = nil,
+        maxWidth: CGFloat? = nil,
+        maxHeight: CGFloat? = nil,
         cornerRadius: CGFloat? = nil
     ) -> some View {
         self.transformEnvironment(\.a2uiStyle) { style in
             var existing = style.imageStyles[variant.rawValue] ?? .init()
             if let width { existing.width = width }
             if let height { existing.height = height }
+            if let maxWidth { existing.maxWidth = maxWidth }
+            if let maxHeight { existing.maxHeight = maxHeight }
             if let cornerRadius { existing.cornerRadius = cornerRadius }
             style.imageStyles[variant.rawValue] = existing
         }

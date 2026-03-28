@@ -4,6 +4,7 @@
 
 import Foundation
 import A2UIV09
+import GenAIPrimitives
 
 /// Transport that calls the Google Gemini REST API directly,
 /// aligning with the Flutter `GoogleGenerativeAiClient` implementation.
@@ -12,7 +13,12 @@ final class GeminiTravelTransport: TravelTransport {
 
     private let apiKey: String
     private let model: String
-    private var conversationHistory: [[String: Any]] = []
+
+    /// Typed conversation history using `GenAIPrimitives.ChatMessage`.
+    ///
+    /// Replaces the previous `[[String: Any]]` representation. Serialization to
+    /// Gemini REST JSON format is handled by `GeminiContentConverter`.
+    private var conversationHistory: [GenAIPrimitives.ChatMessage] = []
 
     /// Client data model set by the ViewModel before actions, matching Flutter's
     /// pattern of including the data model in the system instruction.
@@ -22,7 +28,7 @@ final class GeminiTravelTransport: TravelTransport {
     /// were generated. Read by the ViewModel to show as a text bubble.
     private(set) var lastTextResponse: String?
 
-    init(apiKey: String, model: String = "gemini-2.5-flash") {
+    init(apiKey: String, model: String = "gemini-3-flash-preview") {
         self.apiKey = apiKey
         self.model = model
     }
@@ -31,7 +37,7 @@ final class GeminiTravelTransport: TravelTransport {
 
     func sendText(_ text: String, contextId: String?) async throws -> TransportResponse {
         print("[GeminiTransport] sendText: \"\(text.prefix(100))\" self=\(ObjectIdentifier(self))")
-        conversationHistory.append(userContent(text))
+        conversationHistory.append(GenAIPrimitives.ChatMessage.user(text))
 
         let messages = try await generateContent()
         print("[GeminiTransport] sendText returning \(messages.count) messages")
@@ -69,7 +75,7 @@ final class GeminiTravelTransport: TravelTransport {
             interactionText = "User action: \(action.name) on surface: \(surfaceId)"
         }
         print("[GeminiTransport] sendAction: \(interactionText)")
-        conversationHistory.append(userContent(interactionText))
+        conversationHistory.append(GenAIPrimitives.ChatMessage.user(interactionText))
 
         let messages = try await generateContent()
         print("[GeminiTransport] sendAction returning \(messages.count) messages")
@@ -79,7 +85,7 @@ final class GeminiTravelTransport: TravelTransport {
         return AsyncThrowingStream { continuation in
             Task {
                 do {
-                    conversationHistory.append(userContent(text))
+                    conversationHistory.append(GenAIPrimitives.ChatMessage.user(text))
                     let stream = try streamContent(continuation: continuation)
                     _ = stream
                 } catch {
@@ -115,7 +121,7 @@ final class GeminiTravelTransport: TravelTransport {
                     ]
                     if let data = try? JSONSerialization.data(withJSONObject: interactionJson, options: [.sortedKeys]),
                        let text = String(data: data, encoding: .utf8) {
-                        conversationHistory.append(userContent(text))
+                        conversationHistory.append(GenAIPrimitives.ChatMessage.user(text))
                     }
                     updateClientDataModelForStreaming()
                     try streamContent(continuation: continuation)
@@ -132,15 +138,10 @@ final class GeminiTravelTransport: TravelTransport {
             do {
                 let url = URL(string: "https://generativelanguage.googleapis.com/v1beta/models/\(model):streamGenerateContent?key=\(apiKey)&alt=sse")!
                 let requestBody: [String: Any] = [
-                    "contents": conversationHistory,
+                    "contents": GeminiContentConverter.toGeminiContents(conversationHistory),
                     "system_instruction": systemInstruction(),
-                    "tools": toolDeclarations(),
-                    "toolConfig": ["functionCallingConfig": ["mode": "AUTO"]],
-                    "generationConfig": [
-                        "temperature": 1.0,
-                        "topP": 0.95,
-                        "maxOutputTokens": 65536
-                    ]
+                    "tools": GeminiContentConverter.toGeminiTools(toolDefinitions()),
+                    "toolConfig": ["functionCallingConfig": ["mode": "AUTO"]]
                 ]
 
                 var request = URLRequest(url: url)
@@ -155,8 +156,8 @@ final class GeminiTravelTransport: TravelTransport {
                 }
 
                 var accumulatedText = ""
-                var functionCalls: [[String: Any]] = []
-                var modelParts: [[String: Any]] = []
+                var accumulatedToolCalls: [ToolPartContent] = []
+                var streamedModelParts: [StandardPart] = []
 
                 for try await line in bytes.lines {
                     guard line.hasPrefix("data: ") else { continue }
@@ -165,32 +166,41 @@ final class GeminiTravelTransport: TravelTransport {
                           let data = jsonStr.data(using: .utf8),
                           let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any] else { continue }
 
-                    let (calls, textParts, parts) = extractResponseParts(from: json)
-                    functionCalls.append(contentsOf: calls)
-                    if let parts { modelParts.append(contentsOf: parts) }
+                    let (calls, textParts) = GeminiContentConverter.extractResponseParts(from: json)
+                    accumulatedToolCalls.append(contentsOf: calls)
 
                     for chunk in textParts {
                         accumulatedText += chunk
+                        streamedModelParts.append(.text(chunk))
                         continuation.yield(.textChunk(chunk))
                     }
+                    for call in calls {
+                        streamedModelParts.append(.tool(call))
+                    }
                 }
 
-                // Save model turn to history
-                if !modelParts.isEmpty {
-                    conversationHistory.append(["role": "model", "parts": modelParts])
+                // Save model turn to history as a typed ChatMessage
+                if !streamedModelParts.isEmpty {
+                    conversationHistory.append(GenAIPrimitives.ChatMessage(role: .model, parts: streamedModelParts))
                 }
 
-                if !functionCalls.isEmpty {
+                if !accumulatedToolCalls.isEmpty {
                     // Handle tool calls: execute and make another (non-streaming) call
                     continuation.yield(.status(state: "tool_use", text: "Looking up options...", taskId: nil, contextId: nil, isFinal: false))
-                    var functionResponseParts: [[String: Any]] = []
-                    for call in functionCalls {
-                        let name = call["name"] as? String ?? ""
-                        let args = call["args"] as? [String: Any] ?? [:]
-                        let result = await executeTool(name: name, args: args)
-                        functionResponseParts.append(["functionResponse": ["name": name, "response": result]])
+                    var toolResultParts: [StandardPart] = []
+                    for call in accumulatedToolCalls {
+                        let args: [String: Any] = (call.arguments ?? [:]).compactMapValues { $0.anyValue }
+                        let result = await executeTool(name: call.toolName, args: args)
+                        let resultValue = JSONValue(result as Any) ?? .object([:])
+                        toolResultParts.append(
+                            ToolPart.result(
+                                callId: call.callId,
+                                toolName: call.toolName,
+                                result: resultValue
+                            )
+                        )
                     }
-                    conversationHistory.append(["role": "user", "parts": functionResponseParts])
+                    conversationHistory.append(GenAIPrimitives.ChatMessage(role: .user, parts: toolResultParts))
 
                     // Non-streaming follow-up after tool use
                     let finalMessages = try await generateContent()
@@ -222,15 +232,10 @@ final class GeminiTravelTransport: TravelTransport {
         let url = URL(string: "https://generativelanguage.googleapis.com/v1beta/models/\(model):generateContent?key=\(apiKey)")!
 
         let requestBody: [String: Any] = [
-            "contents": conversationHistory,
+            "contents": GeminiContentConverter.toGeminiContents(conversationHistory),
             "system_instruction": systemInstruction(),
-            "tools": toolDeclarations(),
-            "toolConfig": ["functionCallingConfig": ["mode": "AUTO"]],
-            "generationConfig": [
-                "temperature": 1.0,
-                "topP": 0.95,
-                "maxOutputTokens": 65536
-            ]
+            "tools": GeminiContentConverter.toGeminiTools(toolDefinitions()),
+            "toolConfig": ["functionCallingConfig": ["mode": "AUTO"]]
         ]
 
         let currentJson = try await callGemini(url: url, body: requestBody)
@@ -271,18 +276,18 @@ final class GeminiTravelTransport: TravelTransport {
         lastTextResponse = nil
         var currentJson = initialJson
         var toolCycles = 0
-        let maxToolCycles = 10
+        let maxToolCycles = 40
 
         while toolCycles < maxToolCycles {
-            let (functionCalls, textParts, parts) = extractResponseParts(from: currentJson)
+            let (toolCalls, textParts) = GeminiContentConverter.extractResponseParts(from: currentJson)
 
-            if functionCalls.isEmpty {
+            if toolCalls.isEmpty {
                 let fullText = textParts.joined()
                 print("[GeminiTransport] Model text response (\(fullText.count) chars): \(fullText.prefix(300))...")
 
-                // Add model response to conversation history
-                if let parts {
-                    conversationHistory.append(["role": "model", "parts": parts])
+                // Add model response to conversation history as a typed ChatMessage
+                if let modelMessage = GeminiContentConverter.extractModelMessage(from: currentJson) {
+                    conversationHistory.append(modelMessage)
                 }
 
                 let messages = await parseA2uiMessages(from: fullText)
@@ -301,44 +306,37 @@ final class GeminiTravelTransport: TravelTransport {
             }
 
             toolCycles += 1
-            print("[GeminiTransport] Tool cycle \(toolCycles): \(functionCalls.count) function call(s)")
+            print("[GeminiTransport] Tool cycle \(toolCycles): \(toolCalls.count) function call(s)")
 
-            // Add model response (with function calls) to history
-            if let parts {
-                conversationHistory.append(["role": "model", "parts": parts])
+            // Add model response (with function calls) to history as a typed ChatMessage
+            if let modelMessage = GeminiContentConverter.extractModelMessage(from: currentJson) {
+                conversationHistory.append(modelMessage)
             }
 
-            // Process function calls
-            var functionResponseParts: [[String: Any]] = []
-            for call in functionCalls {
-                let name = call["name"] as? String ?? ""
-                let args = call["args"] as? [String: Any] ?? [:]
-                print("[GeminiTransport] Executing tool: \(name) args: \(args)")
-                let result = await executeTool(name: name, args: args)
-                functionResponseParts.append([
-                    "functionResponse": [
-                        "name": name,
-                        "response": result
-                    ]
-                ])
+            // Process function calls and build typed tool-result ChatMessage
+            var toolResultParts: [StandardPart] = []
+            for call in toolCalls {
+                let args: [String: Any] = (call.arguments ?? [:]).compactMapValues { $0.anyValue }
+                print("[GeminiTransport] Executing tool: \(call.toolName) args: \(args)")
+                let result = await executeTool(name: call.toolName, args: args)
+                let resultValue = JSONValue(result as Any) ?? .object([:])
+                toolResultParts.append(
+                    ToolPart.result(
+                        callId: call.callId,
+                        toolName: call.toolName,
+                        result: resultValue
+                    )
+                )
             }
 
-            // Add tool responses to history
-            conversationHistory.append([
-                "role": "user",
-                "parts": functionResponseParts
-            ])
+            // Add tool responses to history as a typed ChatMessage
+            conversationHistory.append(GenAIPrimitives.ChatMessage(role: .user, parts: toolResultParts))
 
             let nextRequestBody: [String: Any] = [
-                "contents": conversationHistory,
+                "contents": GeminiContentConverter.toGeminiContents(conversationHistory),
                 "system_instruction": systemInstruction(),
-                "tools": toolDeclarations(),
-                "toolConfig": ["functionCallingConfig": ["mode": "AUTO"]],
-                "generationConfig": [
-                    "temperature": 1.0,
-                    "topP": 0.95,
-                    "maxOutputTokens": 65536
-                ]
+                "tools": GeminiContentConverter.toGeminiTools(toolDefinitions()),
+                "toolConfig": ["functionCallingConfig": ["mode": "AUTO"]]
             ]
 
             currentJson = try await callGemini(url: url, body: nextRequestBody)
@@ -348,86 +346,56 @@ final class GeminiTravelTransport: TravelTransport {
         return []
     }
 
-    /// Streaming variant: returns individual parts for incremental accumulation.
-    private func extractResponseParts(from json: [String: Any]) -> (
-        functionCalls: [[String: Any]],
-        textParts: [String],
-        parts: [[String: Any]]?
-    ) {
-        guard let candidates = json["candidates"] as? [[String: Any]],
-              let firstCandidate = candidates.first,
-              let content = firstCandidate["content"] as? [String: Any],
-              let parts = content["parts"] as? [[String: Any]] else {
-            return ([], [], nil)
-        }
-
-        var functionCalls: [[String: Any]] = []
-        var textParts: [String] = []
-
-        for part in parts {
-            if let functionCall = part["functionCall"] as? [String: Any] {
-                functionCalls.append(functionCall)
-            }
-            if let text = part["text"] as? String {
-                textParts.append(text)
-            }
-        }
-
-        return (functionCalls, textParts, parts)
-    }
-
-    /// Returns the `tools` array for the Gemini API request, declaring the `listHotels` function.
+    /// Returns the tool declarations as typed `ToolDefinition` instances.
+    ///
     /// Matches the Flutter `ListHotelsTool` schema in `list_hotels_tool.dart`.
-    private func toolDeclarations() -> [[String: Any]] {
-        return [[
-            "functionDeclarations": [[
-                "name": "listHotels",
-                "description": "Lists hotels based on the provided criteria.",
-                "parameters": [
-                    "type": "OBJECT",
+    /// Serialization to Gemini `functionDeclarations` format is done by
+    /// `GeminiContentConverter.toGeminiTools(_:)`.
+    private func toolDefinitions() -> [ToolDefinition] {
+        return [
+            ToolDefinition(
+                name: "listHotels",
+                description: "Lists hotels based on the provided criteria.",
+                inputSchema: [
+                    "type": "object",
                     "properties": [
                         "query": [
-                            "type": "STRING",
-                            "description": "The search query, e.g., \"hotels in Paris\"."
-                        ],
+                            "type": "string",
+                            "description": "The search query, e.g., \"hotels in Paris\".",
+                        ] as [String: Any],
                         "checkIn": [
-                            "type": "STRING",
-                            "description": "The check-in date in ISO 8601 format (YYYY-MM-DD)."
-                        ],
+                            "type": "string",
+                            "description": "The check-in date in ISO 8601 format (YYYY-MM-DD).",
+                            "format": "date",
+                        ] as [String: Any],
                         "checkOut": [
-                            "type": "STRING",
-                            "description": "The check-out date in ISO 8601 format (YYYY-MM-DD)."
-                        ],
+                            "type": "string",
+                            "description": "The check-out date in ISO 8601 format (YYYY-MM-DD).",
+                            "format": "date",
+                        ] as [String: Any],
                         "guests": [
-                            "type": "INTEGER",
-                            "description": "The number of guests."
-                        ]
-                    ],
-                    "required": ["query", "checkIn", "checkOut", "guests"]
+                            "type": "integer",
+                            "description": "The number of guests.",
+                        ] as [String: Any],
+                    ] as [String: Any],
+                    "required": ["query", "checkIn", "checkOut", "guests"],
                 ]
-            ]]
-        ]]
+            ),
+        ]
     }
 
     /// Execute a tool call. Currently supports `listHotels`.
-    /// Returns data matching the Flutter `BookingService.listHotelsSync()` format.
+    /// Delegates to `BookingService` matching Flutter's pattern.
     private func executeTool(name: String, args: [String: Any]) async -> [String: Any] {
         if name == "listHotels" {
             let query = args["query"] as? String ?? ""
-            return [
-                "listings": [
-                    [
-                        "description": "The Dart Inn in \(query), $150",
-                        "images": ["dart_inn"],
-                        "listingSelectionId": "123456789"
-                    ],
-                    [
-                        "description": "The Flutter Hotel in \(query), $250",
-                        "images": ["flutter_hotel"],
-                        "listingSelectionId": "987654321"
-                    ]
-                ]
-            ]
+            let checkIn = args["checkIn"] as? String ?? ""
+            let checkOut = args["checkOut"] as? String ?? ""
+            let guests = (args["guests"] as? Int) ?? (args["guests"] as? Double).map { Int($0) } ?? 2
+            let results = BookingService.instance.listHotels(
+                query: query, checkIn: checkIn, checkOut: checkOut, guests: guests
+            )
+            return ["listings": results]
         }
         return ["error": "Unknown tool: \(name)"]
     }
@@ -480,13 +448,6 @@ final class GeminiTravelTransport: TravelTransport {
         }
     }
 
-    private func userContent(_ text: String) -> [String: Any] {
-        [
-            "role": "user",
-            "parts": [["text": text]]
-        ]
-    }
-
     // MARK: - JSON Block Parsing
 
     /// Parse A2UI messages from the response text.
@@ -535,22 +496,194 @@ final class GeminiTravelTransport: TravelTransport {
 
     // MARK: - Prompts (aligned with Flutter travel_planner_page.dart)
 
-    /// The available asset images in the SwiftUI project.
+    /// The available asset images, aligned with Flutter's `_images.json`.
+    /// Each entry has `image_file_name` (asset path) and `description` so the
+    /// LLM can pick contextually relevant images.
     private static let assetImages = """
-    Available asset images (use these names directly as the image url):
-    - akrotiri_spring_fresco_santorini
-    - bali_memorial
-    - borobudur_indonesia
-    - brooklyn_bridge_new_york
-    - canyonlands_national_park_utah
-    - dart_inn
-    - edo_panorama_tokyo
-    - eiffel_tower_construction_1888
-    - flutter_hotel
-    - kata_noi_beach_phuket_thailand
-    - saffron_gatherers_fresco_santorini
-    - santorini_from_space
-    - santorini_panorama
+    [
+        {"image_file_name": "assets/travel_images/snorkeling_hanauma_bay_hawaii.jpg", "description": "Snorkelers at Hanauma Bay, Oahu, Hawaii."},
+        {"image_file_name": "assets/travel_images/snorkeling_gear.jpg", "description": "Typical snorkeling equipment: snorkel, diving mask and swimfins."},
+        {"image_file_name": "assets/travel_images/sailing_contender_dinghy.jpg", "description": "A person sailing a Contender dinghy."},
+        {"image_file_name": "assets/travel_images/alimini_lake_otranto_italy.jpg", "description": "The Alimini Lakes in Otranto, Italy."},
+        {"image_file_name": "assets/travel_images/brighton_beach_england.jpg", "description": "Brighton beach and the chain pier in the distance."},
+        {"image_file_name": "assets/travel_images/carters_beach_sand.jpg", "description": "Sand at Carters Beach, Canada."},
+        {"image_file_name": "assets/travel_images/castelldefels_spain_september.jpg", "description": "A beach in Castelldefels, Spain in September."},
+        {"image_file_name": "assets/travel_images/green_sand_mahana_beach_hawaii.jpg", "description": "A closeup of green sand from Mahana Beach in Hawaii."},
+        {"image_file_name": "assets/travel_images/llandudno_wales.jpg", "description": "A photograph of Llandudno, Wales."},
+        {"image_file_name": "assets/travel_images/man_o_war_cove_dorset_england.jpg", "description": "Man O\u{2019}War Cove in St Oswalds Bay, Dorset, England."},
+        {"image_file_name": "assets/travel_images/monte_carlo_casino_monaco.jpg", "description": "The seaside facade of the Monte Carlo Casino."},
+        {"image_file_name": "assets/travel_images/ramla_bay_gozo_malta.jpg", "description": "Ramla Bay on the island of Gozo, Malta."},
+        {"image_file_name": "assets/travel_images/blackpool_promenade_england.jpg", "description": "The promenade in Blackpool, Lancashire, England."},
+        {"image_file_name": "assets/travel_images/checkerboard_forest_idaho.jpg", "description": "An aerial view of a checkerboard forest pattern in Idaho."},
+        {"image_file_name": "assets/travel_images/mount_garibaldi_british_columbia.jpg", "description": "A forest on Mount Garibaldi, in Garibaldi Provincial Park, British Columbia, Canada."},
+        {"image_file_name": "assets/travel_images/jedediah_smith_redwoods_california.jpg", "description": "The Simpson Reed Discovery Trail in Jedediah Smith Redwoods State Park, California."},
+        {"image_file_name": "assets/travel_images/earth_from_apollo_17.jpg", "description": "A photograph of the Earth taken from Apollo 17, known as 'The Blue Marble'."},
+        {"image_file_name": "assets/travel_images/white_sands_national_park_new_mexico.jpg", "description": "An aerial view of the dunefield at White Sands National Park, New Mexico."},
+        {"image_file_name": "assets/travel_images/desert_iguana_mojave_desert_california.jpg", "description": "A Desert Iguana near Amboy Crater in the Mojave Desert, California."},
+        {"image_file_name": "assets/travel_images/desert_pavement_mojave.jpg", "description": "Desert pavement in the Cima Volcanic Field of the Mojave Desert."},
+        {"image_file_name": "assets/travel_images/gusev_crater_mars.jpg", "description": "A panoramic image of Gusev Crater on Mars, taken by the Spirit rover."},
+        {"image_file_name": "assets/travel_images/marco_polo_traveling.jpg", "description": "A miniature from 'The Travels of Marco Polo' depicting Marco Polo travelling."},
+        {"image_file_name": "assets/travel_images/sandstorm_al_asad_iraq.jpg", "description": "A large dust storm (haboob) over Al Asad, Iraq."},
+        {"image_file_name": "assets/travel_images/ulaan_tsutgalan_waterfall_mongolia.jpg", "description": "The Ulaan Tsutgalan waterfall in Mongolia."},
+        {"image_file_name": "assets/travel_images/niagara_falls_american_side.jpg", "description": "A painting of Niagara Falls from the American side by Frederic Edwin Church."},
+        {"image_file_name": "assets/travel_images/ancient_coral_reefs.jpg", "description": "A photograph of ancient coral reefs."},
+        {"image_file_name": "assets/travel_images/brain_coral_spawning.jpg", "description": "An image of brain coral spawning."},
+        {"image_file_name": "assets/travel_images/caribbean_reef_squid.jpg", "description": "A Caribbean reef squid."},
+        {"image_file_name": "assets/travel_images/coral_polyp_anatomy.jpg", "description": "A diagram showing the anatomy of a coral polyp."},
+        {"image_file_name": "assets/travel_images/deep_sea_corals_wagner_seamount.jpg", "description": "A high-density deep sea coral community at Wagner Seamount."},
+        {"image_file_name": "assets/travel_images/fringing_coral_reef_eilat_israel.jpg", "description": "A fringing coral reef near Eilat, Israel."},
+        {"image_file_name": "assets/travel_images/table_coral_hawaii.jpg", "description": "Table coral of the genus Acropora at French Frigate Shoals, Northwestern Hawaiian Islands."},
+        {"image_file_name": "assets/travel_images/fluorescent_coral_monterey_bay_aquarium.jpg", "description": "An exhibit of fluorescent coral at the Monterey Bay Aquarium in California."},
+        {"image_file_name": "assets/travel_images/kurumba_island_maldives.jpg", "description": "An aerial view of Kurumba Island in the Maldives."},
+        {"image_file_name": "assets/travel_images/maldives_islands.jpg", "description": "A view of the Maldives islands from an air-taxi."},
+        {"image_file_name": "assets/travel_images/noaa_coral_nurseries.jpg", "description": "A NOAA coral nursery, a method of coral restoration."},
+        {"image_file_name": "assets/travel_images/brain_coral.jpg", "description": "A photograph of brain coral."},
+        {"image_file_name": "assets/travel_images/pillar_coral.jpg", "description": "A photograph of pillar coral."},
+        {"image_file_name": "assets/travel_images/banded_cleaner_shrimp.jpg", "description": "A high-resolution image of a banded cleaner shrimp."},
+        {"image_file_name": "assets/travel_images/whitetip_reef_shark_hawaii.jpg", "description": "A whitetip reef shark off the coast of the Hawaiian Islands."},
+        {"image_file_name": "assets/travel_images/augustine_volcano_alaska.jpg", "description": "A gas plume rising from Augustine Volcano in Alaska."},
+        {"image_file_name": "assets/travel_images/capulin_volcano_new_mexico.jpg", "description": "Capulin Volcano National Monument in New Mexico."},
+        {"image_file_name": "assets/travel_images/mount_st_helens_east_dome.jpg", "description": "The east dome of Mount St. Helens in Washington."},
+        {"image_file_name": "assets/travel_images/koryaksky_volcano_kamchatka_russia.jpg", "description": "Koryaksky Volcano in Petropavlovsk-Kamchatsky, Russia."},
+        {"image_file_name": "assets/travel_images/litli_hrutur_eruption_iceland.jpg", "description": "The 2023 eruption of Litli-Hr\u{00fa}tur volcano in Iceland, viewed from an airplane."},
+        {"image_file_name": "assets/travel_images/mount_vesuvius_italy.jpg", "description": "Mount Vesuvius in the evening, with an Araucaria heterophylla tree in the foreground."},
+        {"image_file_name": "assets/travel_images/olympus_mons_mars.jpg", "description": "A composite Viking orbiter image of Olympus Mons on Mars, the tallest known volcano in the solar system."},
+        {"image_file_name": "assets/travel_images/puu_oo_volcanic_cone_hawaii.jpg", "description": "Pu'u 'O'o, a volcanic cone on the Kilauea volcano in Hawaii."},
+        {"image_file_name": "assets/travel_images/geikie_plateau_glacier_greenland.jpg", "description": "The Geikie Plateau glacier and mountain peaks in eastern Greenland."},
+        {"image_file_name": "assets/travel_images/south_cascade_glacier_retreat.jpg", "description": "A photo showing the retreat of the South Cascade Glacier."},
+        {"image_file_name": "assets/travel_images/lake_vostok_antarctica.jpg", "description": "An artist's cross-section of Lake Vostok, the largest known subglacial lake in Antarctica."},
+        {"image_file_name": "assets/travel_images/glacial_moraines_lake_louise_canada.jpg", "description": "Glacial moraines above Lake Louise in Banff National Park, Alberta, Canada."},
+        {"image_file_name": "assets/travel_images/glacially_plucked_granite_aland_finland.jpg", "description": "Glacially-plucked granitic bedrock near Mariehamn, \u{00c5}land, Finland."},
+        {"image_file_name": "assets/travel_images/vatnajokull_glacier_iceland.jpg", "description": "A photograph of the Vatnaj\u{00f6}kull glacier in Iceland."},
+        {"image_file_name": "assets/travel_images/canyonlands_national_park_utah.jpg", "description": "A view of Canyonlands National Park from the Green River Overlook in Utah."},
+        {"image_file_name": "assets/travel_images/calle_loiza_san_juan_puerto_rico_hurricane_maria.jpg", "description": "Calle Lo\u{00ed}za in San Juan, Puerto Rico, after Hurricane Maria."},
+        {"image_file_name": "assets/travel_images/hawaii_archipelago_satellite_view.jpg", "description": "A satellite view of the Hawaiian archipelago."},
+        {"image_file_name": "assets/travel_images/temple_of_heaven_beijing_china.jpg", "description": "The Hall of Prayer for Good Harvest at the Temple of Heaven in Beijing, China."},
+        {"image_file_name": "assets/travel_images/holyland_model_of_jerusalem.jpg", "description": "A close-up of the temple in the Holyland Model of Jerusalem."},
+        {"image_file_name": "assets/travel_images/borobudur_indonesia.jpg", "description": "Panoramic views of the Borobudur temple in Indonesia."},
+        {"image_file_name": "assets/travel_images/cathedral_of_christ_the_saviour_moscow_russia.jpg", "description": "The Cathedral of Christ the Saviour in Moscow, Russia."},
+        {"image_file_name": "assets/travel_images/vellore_golden_temple_india.jpg", "description": "A full view of the Vellore Golden Temple in India."},
+        {"image_file_name": "assets/travel_images/zoroastrian_temple_yazd_iran.jpg", "description": "A Zoroastrian temple in Yazd, Iran."},
+        {"image_file_name": "assets/travel_images/ziggurat_of_ur_iraq.jpg", "description": "The Ziggurat of Ur in Iraq."},
+        {"image_file_name": "assets/travel_images/baker_street_station_london_1906.jpg", "description": "A platform on the Baker Street and Waterloo Railway in London, during its first week of opening in 1906."},
+        {"image_file_name": "assets/travel_images/first_electric_tram_berlin_1881.jpg", "description": "The world's first electric tram in Lichterfelde, near Berlin, in 1881."},
+        {"image_file_name": "assets/travel_images/ganz_electric_locomotive_italy_1901.jpg", "description": "A prototype of a Ganz AC electric locomotive in Valtellina, Italy, in 1901."},
+        {"image_file_name": "assets/travel_images/lucerne_train_station_switzerland.jpg", "description": "A goods station and marshalling yard in Lucerne, Switzerland."},
+        {"image_file_name": "assets/travel_images/cruise_ship_bridge.jpg", "description": "The bridge of a modern cruise ship."},
+        {"image_file_name": "assets/travel_images/po_liner_strathaird_fremantle.jpg", "description": "The P&O liner Strathaird at Fremantle Harbour."},
+        {"image_file_name": "assets/travel_images/cruise_ship_casino.jpg", "description": "The casino on the cruise ship Norwegian Bliss."},
+        {"image_file_name": "assets/travel_images/cruise_ship_luggage.jpg", "description": "Luggage being loaded onto a cruise ship."},
+        {"image_file_name": "assets/travel_images/cruise_ship_medical_area.jpg", "description": "The medical intake area on a cruise ship."},
+        {"image_file_name": "assets/travel_images/hapag_steamship_prinzessin_victoria_luise.jpg", "description": "The HAPAG steamship Prinzessin Victoria Luise."},
+        {"image_file_name": "assets/travel_images/island_princess_cruise_ship.jpg", "description": "The Island Princess cruise ship."},
+        {"image_file_name": "assets/travel_images/lumiere_brothers_cinematographe_poster.jpg", "description": "A poster for the Lumi\u{00e8}re brothers' cinematographe."},
+        {"image_file_name": "assets/travel_images/conseil_detat_paris.jpg", "description": "The French Conseil d'\u{00c9}tat (Council of State) in Paris."},
+        {"image_file_name": "assets/travel_images/les_deux_magots_cafe_paris.jpg", "description": "The Caf\u{00e9} 'Les Deux Magots' in Paris."},
+        {"image_file_name": "assets/travel_images/eiffel_tower_construction_1888.jpg", "description": "The Eiffel Tower under construction in 1888."},
+        {"image_file_name": "assets/travel_images/palais_de_la_cite_paris.jpg", "description": "A detail from the Tr\u{00e8}s Riches Heures du Duc de Berry, showing the Palais de la Cit\u{00e9} in Paris."},
+        {"image_file_name": "assets/travel_images/paris_19th_arrondissement.jpg", "description": "A residential area in the 19th arrondissement of Paris."},
+        {"image_file_name": "assets/travel_images/le_moulin_de_la_galette_renoir.jpg", "description": "The painting 'Bal du moulin de la Galette' by Pierre-Auguste Renoir."},
+        {"image_file_name": "assets/travel_images/map_of_paris_1657.jpg", "description": "A map of Paris from 1657."},
+        {"image_file_name": "assets/travel_images/fontana_della_barcaccia_rome.jpg", "description": "The Fontana della Barcaccia at the foot of the Spanish Steps in Rome."},
+        {"image_file_name": "assets/travel_images/st_peters_basilica_rome.jpg", "description": "St. Peter's Basilica in Rome, seen from Castel Sant'Angelo."},
+        {"image_file_name": "assets/travel_images/trajans_market_rome.jpg", "description": "A view of Trajan's Market in Rome."},
+        {"image_file_name": "assets/travel_images/piazza_navona_rome.jpg", "description": "A view of the Piazza Navona in Rome."},
+        {"image_file_name": "assets/travel_images/abbey_road_studios_london.jpg", "description": "Abbey Road Studios in London."},
+        {"image_file_name": "assets/travel_images/comptons_of_soho_london.jpg", "description": "Comptons of Soho on Old Compton Street in London."},
+        {"image_file_name": "assets/travel_images/st_pauls_cathedral_london.jpg", "description": "St. Paul's Cathedral in London in the evening."},
+        {"image_file_name": "assets/travel_images/kensington_museums_london_aerial.jpg", "description": "An aerial photograph of the Kensington Museums area in London."},
+        {"image_file_name": "assets/travel_images/bank_of_england_london.jpg", "description": "The Bank of England in Threadneedle Street, London."},
+        {"image_file_name": "assets/travel_images/paternoster_square_london.jpg", "description": "A view of Paternoster Square in London from St. Paul's Cathedral."},
+        {"image_file_name": "assets/travel_images/westminster_abbey_canaletto_1749.jpg", "description": "A painting of Westminster Abbey by Canaletto from 1749."},
+        {"image_file_name": "assets/travel_images/edo_panorama_tokyo.jpg", "description": "A color photochrom print of a panorama of Edo (now Tokyo), Japan."},
+        {"image_file_name": "assets/travel_images/suruga_street_edo_hiroshige.jpg", "description": "The 'Suruga Street' print from the series 'One Hundred Famous Views of Edo' by Utagawa Hiroshige."},
+        {"image_file_name": "assets/travel_images/fushimi_yagura_imperial_palace_tokyo.jpg", "description": "The Fushimi Yagura, a watchtower at the Imperial Palace in Tokyo."},
+        {"image_file_name": "assets/travel_images/map_of_izu_islands_japan.jpg", "description": "A map of the Izu Islands in Japan."},
+        {"image_file_name": "assets/travel_images/shofuku_ji_temple_tokyo.jpg", "description": "The Jiz\u{014d}-d\u{014d} hall of Sh\u{014d}fuku-ji, a Buddhist temple in Higashimurayama, Tokyo."},
+        {"image_file_name": "assets/travel_images/crowded_tram_tokyo.jpg", "description": "A colorized postcard showing a crowded tram in Tokyo."},
+        {"image_file_name": "assets/travel_images/kinkaku_ji_golden_pavilion_kyoto.jpg", "description": "The Kinkaku (Golden Pavilion) at Rokuon-ji temple in Kyoto, Japan."},
+        {"image_file_name": "assets/travel_images/kyoto_view_from_kiyomizu_dera_1870s.jpg", "description": "A view of Kyoto from Kiyomizu-dera temple in the 1870s."},
+        {"image_file_name": "assets/travel_images/kyoto_subway.jpg", "description": "A Kyoto subway 20 series train at Takeda station."},
+        {"image_file_name": "assets/travel_images/kyoto_railway_map.jpg", "description": "A railway map of the area around Kyoto City."},
+        {"image_file_name": "assets/travel_images/sanjusangendo_temple_kyoto.jpg", "description": "The Sanjusangend\u{014d} temple in Kyoto, during the Toshiya festival."},
+        {"image_file_name": "assets/travel_images/shijo_kawaramachi_kyoto.jpg", "description": "A street scene in the Shij\u{014d} Kawaramachi area of Kyoto."},
+        {"image_file_name": "assets/travel_images/view_of_fort_george_new_york.jpg", "description": "A view of Fort George (Fort Amsterdam) with the city of New York from the Southwest."},
+        {"image_file_name": "assets/travel_images/temple_emanu_el_new_york.jpg", "description": "Temple Emanu-El in New York City."},
+        {"image_file_name": "assets/travel_images/statue_of_liberty_new_york.jpg", "description": "The Statue of Liberty in New York City."},
+        {"image_file_name": "assets/travel_images/view_of_new_amsterdam_1664.jpg", "description": "An early picture of New Amsterdam (now New York) made in 1664 by Johannes Vingboons."},
+        {"image_file_name": "assets/travel_images/broadway_new_york_1840.jpg", "description": "A painting of Broadway in New York City in 1840."},
+        {"image_file_name": "assets/travel_images/islamic_cultural_center_new_york.jpg", "description": "The Islamic Cultural Center on East 96th Street in Manhattan, New York City."},
+        {"image_file_name": "assets/travel_images/lincoln_tunnel_manhattan.jpg", "description": "The Lincoln Tunnel portal in Manhattan, New York City."},
+        {"image_file_name": "assets/travel_images/brooklyn_bridge_new_york.jpg", "description": "The Brooklyn Bridge in New York City."},
+        {"image_file_name": "assets/travel_images/map_of_new_amsterdam_1660.jpg", "description": "The Castello Plan, a map of New Amsterdam (Manhattan) in 1660."},
+        {"image_file_name": "assets/travel_images/unisphere_corona_park_new_york.jpg", "description": "The Unisphere in Flushing Meadows\u{2013}Corona Park, Queens, New York City."},
+        {"image_file_name": "assets/travel_images/mulberry_street_new_york_1900.jpg", "description": "Mulberry Street in New York City, circa 1900."},
+        {"image_file_name": "assets/travel_images/worker_empire_state_building_new_york.jpg", "description": "A structural worker on the framework of the Empire State Building in New York City."},
+        {"image_file_name": "assets/travel_images/bali_memorial.jpg", "description": "The Bali memorial."},
+        {"image_file_name": "assets/travel_images/nyepi_festival_bali.jpg", "description": "The Nyepi festival, the Balinese New Year."},
+        {"image_file_name": "assets/travel_images/kata_noi_beach_phuket_thailand.jpg", "description": "Kata Noi Beach in Phuket, Thailand."},
+        {"image_file_name": "assets/travel_images/phuket_thailand.jpg", "description": "A photograph of Phuket, Thailand."},
+        {"image_file_name": "assets/travel_images/promthep_cape_phuket_thailand.jpg", "description": "Promthep Cape in Phuket, Thailand."},
+        {"image_file_name": "assets/travel_images/crab_on_beach_phuket_thailand.jpg", "description": "A small crab on a sand beach in Phuket, Thailand."},
+        {"image_file_name": "assets/travel_images/george_street_sydney.jpg", "description": "A view looking north along George Street in Sydney, with a tram, a T-model Ford, and a hansom cab."},
+        {"image_file_name": "assets/travel_images/state_theatre_sydney.jpg", "description": "The main atrium of the State Theatre in Sydney."},
+        {"image_file_name": "assets/travel_images/sydney_at_night_satellite.jpg", "description": "A satellite image of the Greater Sydney Area at night."},
+        {"image_file_name": "assets/travel_images/circular_quay_sydney_1938.jpg", "description": "A night view of Circular Quay in Sydney in 1938."},
+        {"image_file_name": "assets/travel_images/sydney_cove_1888.jpg", "description": "A bird's-eye view of Sydney Cove and its surrounds in 1888."},
+        {"image_file_name": "assets/travel_images/sydney_harbour_bridge_1932.jpg", "description": "Sydney and the Sydney Harbour Bridge, taken from the North Shore in 1932."},
+        {"image_file_name": "assets/travel_images/sydney_olympic_park.jpg", "description": "A panorama of Sydney Olympic Park."},
+        {"image_file_name": "assets/travel_images/sydney_cove_watling_1794.jpg", "description": "A watercolour painting of Sydney Cove by Thomas Watling, from 1794-1796."},
+        {"image_file_name": "assets/travel_images/queenstown_new_zealand.jpg", "description": "A photograph of Queenstown, New Zealand."},
+        {"image_file_name": "assets/travel_images/queenstown_new_zealand_2.jpg", "description": "A photograph of Queenstown, New Zealand."},
+        {"image_file_name": "assets/travel_images/akrotiri_spring_fresco_santorini.jpg", "description": "The spring fresco room in Akrotiri, Santorini, Greece."},
+        {"image_file_name": "assets/travel_images/santorini_from_space.jpg", "description": "A photograph of the island of Santorini, Greece, taken from the International Space Station."},
+        {"image_file_name": "assets/travel_images/saffron_gatherers_fresco_santorini.jpg", "description": "A fresco of saffron gatherers from the Bronze Age excavations in Akrotiri, on the island of Santorini."},
+        {"image_file_name": "assets/travel_images/fira_santorini_1919.jpg", "description": "A photograph of the ladder-like path in Fira, Santorini, from 1919."},
+        {"image_file_name": "assets/travel_images/santorini_panorama.jpg", "description": "A partial panorama of Santorini and the Thera caldera."},
+        {"image_file_name": "assets/travel_images/santorini_satellite_image.jpg", "description": "An ASTER satellite image of the island of Santorini, Greece."},
+        {"image_file_name": "assets/travel_images/lahaina_maui_wildfire_damage.jpg", "description": "Damage in Lahaina, Maui, after the 2023 wildfires."},
+        {"image_file_name": "assets/travel_images/machu_picchu_sacred_plaza.jpg", "description": "A general view of the Sacred Plaza at Machu Picchu."},
+        {"image_file_name": "assets/travel_images/hiram_bingham_machu_picchu_1912.jpg", "description": "A photograph of Hiram Bingham III at his tent near Machu Picchu in 1912."},
+        {"image_file_name": "assets/travel_images/machu_picchu_urubamba_canyon.jpg", "description": "A view of Machu Picchu and the Urubamba Canyon."},
+        {"image_file_name": "assets/travel_images/intihuatana_stone_machu_picchu.jpg", "description": "The Intihuatana stone at Machu Picchu."},
+        {"image_file_name": "assets/travel_images/room_of_the_three_windows_machu_picchu.jpg", "description": "The Room of the Three Windows at Machu Picchu."},
+        {"image_file_name": "assets/travel_images/barcelona_sants_station.jpg", "description": "The Sants railway station and Barcel\u{00f3} Sants Hotel in Barcelona."},
+        {"image_file_name": "assets/travel_images/macba_barcelona.jpg", "description": "The Barcelona Museum of Contemporary Art (MACBA)."},
+        {"image_file_name": "assets/travel_images/circuit_de_catalunya_f1.jpg", "description": "The grandstand at the Circuit de Barcelona-Catalunya."},
+        {"image_file_name": "assets/travel_images/torre_glories_barcelona.jpg", "description": "The Torre Gl\u{00f2}ries in Barcelona."},
+        {"image_file_name": "assets/travel_images/barcelona_drawing_1563.jpg", "description": "A drawing of Barcelona from 1563 by Antony van den Wyngaerde."},
+        {"image_file_name": "assets/travel_images/amsterdam_gay_pride_2013.jpg", "description": "A boat at the Amsterdam Gay Pride parade in 2013."},
+        {"image_file_name": "assets/travel_images/magere_brug_amsterdam.jpg", "description": "The Magere Brug (Skinny Bridge) in Amsterdam."},
+        {"image_file_name": "assets/travel_images/dam_square_amsterdam.jpg", "description": "A photochrom print of Dam Square in Amsterdam."},
+        {"image_file_name": "assets/travel_images/san_marco_basin_venice.jpg", "description": "A view of the San Marco Basin in Venice by Gaspar van Wittel."},
+        {"image_file_name": "assets/travel_images/venice_panorama_1870s.jpg", "description": "A panorama of Venice from the 1870s."},
+        {"image_file_name": "assets/travel_images/venice_from_space.jpg", "description": "A photograph of Venice taken from the International Space Station."},
+        {"image_file_name": "assets/travel_images/piazzetta_san_marco_venice.jpg", "description": "The Piazzetta San Marco in Venice at dawn."},
+        {"image_file_name": "assets/travel_images/venice_shop_window.jpg", "description": "A shop window in Venice."},
+        {"image_file_name": "assets/travel_images/carioca_aqueduct_rio_de_janeiro.jpg", "description": "The Carioca Aqueduct in Rio de Janeiro."},
+        {"image_file_name": "assets/travel_images/anchieta_neighborhood_rio_de_janeiro.jpg", "description": "The Anchieta neighborhood in the north zone of Rio de Janeiro."},
+        {"image_file_name": "assets/travel_images/downtown_rio_de_janeiro.jpg", "description": "Downtown Rio de Janeiro."},
+        {"image_file_name": "assets/travel_images/rio_de_janeiro_from_space.jpg", "description": "The city lights of Rio de Janeiro, Brazil, seen from the International Space Station."},
+        {"image_file_name": "assets/travel_images/linha_vermelha_rio_de_janeiro.jpg", "description": "The Linha Vermelha (Red Line) expressway in Rio de Janeiro."},
+        {"image_file_name": "assets/travel_images/morro_do_borel_rio_de_janeiro.jpg", "description": "The Morro do Borel favela in Tijuca, Rio de Janeiro."},
+        {"image_file_name": "assets/travel_images/botafogo_bay_rio_de_janeiro.jpg", "description": "A painting of Botafogo Bay in Rio de Janeiro by Nicola Antonio Facchinetti."},
+        {"image_file_name": "assets/travel_images/rio_de_janeiro.jpg", "description": "A photograph of Rio de Janeiro."},
+        {"image_file_name": "assets/travel_images/rio_de_janeiro_avenue_1910s.jpg", "description": "The leading avenue of Rio de Janeiro in the 1910s."},
+        {"image_file_name": "assets/travel_images/rio_de_janeiro_1889.jpg", "description": "A photograph of the city of Rio de Janeiro in 1889."},
+        {"image_file_name": "assets/travel_images/al_fahidi_fort_dubai.jpg", "description": "Al Fahidi Fort in Dubai in the late 1950s."},
+        {"image_file_name": "assets/travel_images/dubai_artificial_archipelagos_from_space.jpg", "description": "The artificial archipelagos of Dubai, United Arab Emirates, seen from the International Space Station."},
+        {"image_file_name": "assets/travel_images/dubai_uae.jpg", "description": "A photograph of Dubai, United Arab Emirates."},
+        {"image_file_name": "assets/travel_images/dubai_creek_1964.jpg", "description": "Dubai Creek in 1964."},
+        {"image_file_name": "assets/travel_images/dubai_future_forum_2024.jpg", "description": "The interior of the Dubai Future Forum 2024."},
+        {"image_file_name": "assets/travel_images/dubai_fountain.jpg", "description": "The Dubai Fountain during a show."},
+        {"image_file_name": "assets/travel_images/museum_of_the_future_dubai.jpg", "description": "The Museum of the Future in Dubai."},
+        {"image_file_name": "assets/travel_images/banff_from_sulphur_mountain.jpg", "description": "The town of Banff, Alberta, Canada, photographed from the top of Sulphur Mountain."},
+        {"image_file_name": "assets/travel_images/banff_springs_hotel_1902.jpg", "description": "The Banff Springs Hotel in 1902."},
+        {"image_file_name": "assets/travel_images/canadian_pacific_railway_banff_ad.jpg", "description": "A Canadian Pacific Railway brochure advertisement for Banff, featuring Mount Assiniboine."},
+        {"image_file_name": "assets/travel_images/gray_wolf.jpg", "description": "A gray wolf."},
+        {"image_file_name": "assets/travel_images/fairmont_chateau_lake_louise.jpg", "description": "The Fairmont Chateau Hotel at Lake Louise in Banff National Park."},
+        {"image_file_name": "assets/travel_images/moraine_lake_banff.jpg", "description": "The Valley of the Ten Peaks and Moraine Lake in Banff National Park."}
+    ]
     """
 
     /// System prompt aligned with Flutter `travel_planner_page.dart`.
@@ -684,9 +817,86 @@ final class GeminiTravelTransport: TravelTransport {
       list that might be tangentially relevant. DO NOT USE ANY IMAGES NOT IN THE
       LIST. It is fine if the image is unrelated, as long as it is from the list.
 
-    ## Example
+    - Image location always should be an asset path (e.g. assets/...).
 
-    Here is an example of creating a trip planner UI.
+    ## Examples
+
+    ### Example 1: TravelCarousel with images
+
+    When using TravelCarousel, each item's `imageChildId` MUST reference a separate
+    Image component defined in the same `components` array. Always create Image
+    components with matching IDs for every carousel item.
+
+    ```json
+    {
+      "createSurface": {
+        "surfaceId": "destination_ideas",
+        "catalogId": "https://a2ui.org/specification/v0_9/standard_catalog.json",
+        "sendDataModel": true
+      }
+    }
+    ```
+
+    ```json
+    {
+      "updateComponents": {
+        "surfaceId": "destination_ideas",
+        "components": [
+          {
+            "id": "root",
+            "component": "Column",
+            "children": ["heading", "carousel"]
+          },
+          {
+            "id": "heading",
+            "component": "Text",
+            "text": "What kind of experience are you looking for?"
+          },
+          {
+            "id": "carousel",
+            "component": "TravelCarousel",
+            "items": [
+              {
+                "description": "Relaxing Beach Holiday",
+                "imageChildId": "beach_image",
+                "action": {"event": {"name": "selectExperience"}}
+              },
+              {
+                "description": "Cultural Exploration",
+                "imageChildId": "culture_image",
+                "action": {"event": {"name": "selectExperience"}}
+              },
+              {
+                "description": "Adventure & Outdoors",
+                "imageChildId": "adventure_image",
+                "action": {"event": {"name": "selectExperience"}}
+              }
+            ]
+          },
+          {
+            "id": "beach_image",
+            "component": "Image",
+            "fit": "cover",
+            "url": "assets/travel_images/santorini_panorama.jpg"
+          },
+          {
+            "id": "culture_image",
+            "component": "Image",
+            "fit": "cover",
+            "url": "assets/travel_images/akrotiri_spring_fresco_santorini.jpg"
+          },
+          {
+            "id": "adventure_image",
+            "component": "Image",
+            "fit": "cover",
+            "url": "assets/travel_images/santorini_from_space.jpg"
+          }
+        ]
+      }
+    }
+    ```
+
+    ### Example 2: Itinerary with booking
 
     ```json
     {
@@ -754,19 +964,23 @@ final class GeminiTravelTransport: TravelTransport {
           {
             "id": "mexico_city_image",
             "component": "Image",
-            "url": "santorini_panorama",
+            "url": "assets/travel_images/santorini_panorama.jpg",
             "fit": "cover"
           },
           {
             "id": "day1_image",
             "component": "Image",
-            "url": "santorini_panorama",
+            "url": "assets/travel_images/santorini_panorama.jpg",
             "fit": "cover"
           }
         ]
       }
     }
     ```
+
+    IMPORTANT: When using `imageChildId` in TravelCarousel items, Itinerary, InformationCard,
+    or any other component, you MUST create a corresponding Image component in the same
+    `components` array with a matching `id`. The image will NOT display without this.
 
     When updating or showing UIs, **ALWAYS** use the JSON messages as described above. Prefer to collect and show information by creating a UI for it.
     """

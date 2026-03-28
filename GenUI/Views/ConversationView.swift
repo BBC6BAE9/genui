@@ -107,12 +107,13 @@ struct ModelMessageBubble: View {
 
     var body: some View {
         HStack {
-            HStack(spacing: 8) {
+            HStack(alignment: .top, spacing: 8) {
                 Image("smart_toy")
                     .renderingMode(.template)
                     .resizable()
                     .scaledToFit()
                     .frame(width: 22, height: 22)
+                    .padding(.top, 2)
                 MarkdownTextView(text: text)
             }
             .padding(12)

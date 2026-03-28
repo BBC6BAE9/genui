@@ -426,7 +426,7 @@ struct A2UIListingsBookerView: View {
             guard !initialized else { return }
             initialized = true
             let selectionIds = A2UIHelpers.resolveStringList(props["listingSelectionIds"], surface: surface, dataContextPath: node.dataContextPath)
-            listings = MockData.hotelListings.filter { selectionIds.contains($0.listingSelectionId) }
+            listings = selectionIds.compactMap { BookingService.instance.listing(for: $0) }
         }
     }
 }

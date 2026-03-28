@@ -10,30 +10,40 @@ import A2UIV09
 /// is parsed into a SurfaceViewModel, then rendered inside a labeled card.
 struct CatalogView: View {
     @State private var catalogSections: [CatalogSection] = []
+    @State private var isLoading = true
 
     var body: some View {
-        ScrollView {
-            LazyVStack(spacing: 16) {
-                ForEach(catalogSections) { section in
-                    VStack(spacing: 8) {
-                        Text(section.surfaceId)
-                            .font(.title3)
-                            .fontWeight(.bold)
+        Group {
+            if isLoading {
+                ProgressView("Loading catalog…")
+                    .frame(maxWidth: .infinity, maxHeight: .infinity)
+            } else {
+                ScrollView {
+                    LazyVStack(spacing: 16) {
+                        ForEach(catalogSections) { section in
+                            VStack(spacing: 8) {
+                                Text(section.surfaceId)
+                                    .font(.title3)
+                                    .fontWeight(.bold)
 
-                        CatalogSurfaceView(viewModel: section.viewModel)
+                                CatalogSurfaceView(viewModel: section.viewModel)
+                            }
+                            .frame(maxWidth: .infinity)
+                            .padding()
+                            .background(Color.accentColor.opacity(0.08))
+                            .clipShape(RoundedRectangle(cornerRadius: 12))
+                            .padding(.horizontal)
+                        }
                     }
-                    .frame(maxWidth: .infinity)
-                    .padding()
-                    .background(Color.accentColor.opacity(0.08))
-                    .clipShape(RoundedRectangle(cornerRadius: 12))
-                    .padding(.horizontal)
+                    .padding(.vertical)
                 }
             }
-            .padding(.vertical)
         }
-        .onAppear {
+        .task {
             if catalogSections.isEmpty {
-                catalogSections = Self.buildCatalog()
+                let sections = Self.buildCatalog()
+                catalogSections = sections
+                isLoading = false
             }
         }
     }
