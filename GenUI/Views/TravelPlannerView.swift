@@ -7,14 +7,16 @@ import SwiftUI
 /// The main travel planner page with chat conversation and input.
 struct TravelPlannerView: View {
     var geminiAPIKey: String = ""
+    var useStreaming: Bool = false
 
     @State private var viewModel: TravelPlannerViewModel
     @State private var inputText = ""
 
-    init(geminiAPIKey: String = "") {
+    init(geminiAPIKey: String = "", useStreaming: Bool = false) {
         self.geminiAPIKey = geminiAPIKey
+        self.useStreaming = useStreaming
         _viewModel = State(initialValue: TravelPlannerViewModel(
-            transport: GeminiTravelTransport(apiKey: geminiAPIKey)
+            transport: GeminiTravelTransport(apiKey: geminiAPIKey, useStreaming: useStreaming)
         ))
     }
 
@@ -48,7 +50,7 @@ struct TravelPlannerView: View {
                 }
                 .background(Color(.systemBackground).blur(radius: 5).ignoresSafeArea())
             }
-            .onChange(of: viewModel.messages.count) {
+            .onChange(of: viewModel.scrollTrigger) {
                 withAnimation {
                     proxy.scrollTo("bottom", anchor: .bottom)
                 }

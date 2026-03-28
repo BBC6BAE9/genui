@@ -8,8 +8,12 @@ import GenAIPrimitives
 
 /// Transport that calls the Google Gemini REST API directly,
 /// aligning with the Flutter `GoogleGenerativeAiClient` implementation.
+///
+/// By default uses non-streaming `generateContent` to match Flutter's approach.
+/// Streaming can be enabled via `useStreaming` for a more interactive UX,
+/// but may be less reliable for large JSON responses.
 final class GeminiTravelTransport: TravelTransport {
-    let supportsStreaming = true
+    let supportsStreaming: Bool
 
     private let apiKey: String
     private let model: String
@@ -37,9 +41,10 @@ final class GeminiTravelTransport: TravelTransport {
         "maxOutputTokens": 65536,
     ]
 
-    init(apiKey: String, model: String = "gemini-3-flash-preview") {
+    init(apiKey: String, model: String = "gemini-3-flash-preview", useStreaming: Bool = false) {
         self.apiKey = apiKey
         self.model = model
+        self.supportsStreaming = useStreaming
     }
 
     // MARK: - TravelTransport
@@ -64,12 +69,12 @@ final class GeminiTravelTransport: TravelTransport {
     }
 
     func sendTextStream(_ text: String, contextId: String?) -> AsyncThrowingStream<StreamEvent, Error>? {
+        guard supportsStreaming else { return nil }
         return AsyncThrowingStream { continuation in
             Task {
                 do {
                     conversationHistory.append(GenAIPrimitives.ChatMessage.user(text))
-                    let stream = try streamContent(continuation: continuation)
-                    _ = stream
+                    try streamContent(continuation: continuation)
                 } catch {
                     continuation.finish(throwing: error)
                 }
@@ -78,6 +83,7 @@ final class GeminiTravelTransport: TravelTransport {
     }
 
     func sendActionStream(_ action: ResolvedAction, surfaceId: String, contextId: String?) -> AsyncThrowingStream<StreamEvent, Error>? {
+        guard supportsStreaming else { return nil }
         return AsyncThrowingStream { continuation in
             Task {
                 do {

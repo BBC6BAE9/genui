@@ -8,6 +8,7 @@ import SwiftUI
 /// Provides navigation to the AI chat planner and widget catalog.
 struct ContentView: View {
     @AppStorage("geminiAPIKey") private var geminiAPIKey = ""
+    @AppStorage("useStreaming") private var useStreaming = false
     @State private var travelViewId = UUID()
     @State private var showSettings = false
     @State private var showCatalog = false
@@ -24,7 +25,8 @@ struct ContentView: View {
                     apiKeyPromptView
                 } else {
                     TravelPlannerView(
-                        geminiAPIKey: geminiAPIKey.trimmingCharacters(in: .whitespacesAndNewlines)
+                        geminiAPIKey: geminiAPIKey.trimmingCharacters(in: .whitespacesAndNewlines),
+                        useStreaming: useStreaming
                     )
                     .id(travelViewId)
                 }
@@ -36,23 +38,16 @@ struct ContentView: View {
             .toolbar {
                 ToolbarItem(placement: .topBarLeading) {
                     Button {
-                        // No action
+                        showSettings = true
                     } label: {
-                        Image(systemName: "line.3.horizontal.decrease")
+                        Image(systemName: "gearshape")
                     }
                 }
                 ToolbarItem() {
-                    HStack(spacing: 12) {
-                        Button {
-                            showCatalog = true
-                        } label: {
-                            Image(systemName: "square.grid.2x2")
-                        }
-                        Button {
-                            showSettings = true
-                        } label: {
-                            Image(systemName: "key")
-                        }
+                    Button {
+                        showCatalog = true
+                    } label: {
+                        Image(systemName: "square.grid.2x2")
                     }
                 }
             }
@@ -67,6 +62,7 @@ struct ContentView: View {
                 NavigationStack {
                     SettingsView(
                         geminiAPIKey: $geminiAPIKey,
+                        useStreaming: $useStreaming,
                         onApply: {
                             travelViewId = UUID()
                             showSettings = false
@@ -102,7 +98,7 @@ struct ContentView: View {
             Button {
                 showSettings = true
             } label: {
-                Label("Open Settings", systemImage: "gear")
+                Label("Open Settings", systemImage: "gearshape")
             }
             .buttonStyle(.borderedProminent)
         }
@@ -114,16 +110,34 @@ struct ContentView: View {
 
 private struct SettingsView: View {
     @Binding var geminiAPIKey: String
+    @Binding var useStreaming: Bool
     var onApply: () -> Void
+
+    private var maskedKey: String {
+        let trimmed = geminiAPIKey.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard trimmed.count > 8 else { return trimmed.isEmpty ? "Not configured" : "••••••••" }
+        return String(trimmed.prefix(4)) + "••••" + String(trimmed.suffix(4))
+    }
 
     var body: some View {
         Form {
+            Section {
+                Toggle("Streaming Mode", isOn: $useStreaming)
+            } footer: {
+                Text("When enabled, responses appear incrementally as they are generated. When disabled (default), the complete response is received before display — matching Flutter's behavior and more reliable for complex UI responses.")
+            }
+
             Section("Gemini API") {
-                SecureField("API Key", text: $geminiAPIKey)
-                    .autocorrectionDisabled()
-                Text("Get a key at [aistudio.google.com](https://aistudio.google.com/apikey)")
-                    .font(.caption)
-                    .foregroundStyle(.secondary)
+                NavigationLink {
+                    APIKeySettingsView(geminiAPIKey: $geminiAPIKey)
+                } label: {
+                    HStack {
+                        Text("API Key")
+                        Spacer()
+                        Text(maskedKey)
+                            .foregroundStyle(.secondary)
+                    }
+                }
             }
 
             Section {
@@ -132,6 +146,27 @@ private struct SettingsView: View {
                 }
             }
         }
+    }
+}
+
+// MARK: - API Key Settings
+
+private struct APIKeySettingsView: View {
+    @Binding var geminiAPIKey: String
+
+    var body: some View {
+        Form {
+            Section {
+                SecureField("API Key", text: $geminiAPIKey)
+                    .autocorrectionDisabled()
+            } footer: {
+                Text("Get a key at [aistudio.google.com](https://aistudio.google.com/apikey)")
+            }
+        }
+        .navigationTitle("API Key")
+        #if !os(tvOS) && !os(macOS)
+        .navigationBarTitleDisplayMode(.inline)
+        #endif
     }
 }
 
