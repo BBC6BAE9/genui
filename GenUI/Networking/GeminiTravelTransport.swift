@@ -45,41 +45,14 @@ final class GeminiTravelTransport: TravelTransport {
     }
 
     func sendAction(_ action: ResolvedAction, surfaceId: String, contextId: String?) async throws -> TransportResponse {
-        // Build a structured interaction JSON matching Flutter's format:
-        // The action is sent as a JSON interaction message in the conversation.
-        var actionContext: [String: Any] = [:]
-        for (key, value) in action.context {
-            switch value {
-            case .string(let s): actionContext[key] = s
-            case .number(let n): actionContext[key] = n
-            case .bool(let b): actionContext[key] = b
-            default: actionContext[key] = "\(value)"
-            }
-        }
-        let interactionJson: [String: Any] = [
-            "interaction": [
-                "version": "v0.9",
-                "action": [
-                    "surfaceId": surfaceId,
-                    "name": action.name,
-                    "sourceComponentId": action.sourceComponentId,
-                    "context": actionContext
-                ] as [String: Any]
-            ] as [String: Any]
-        ]
-        let interactionText: String
-        if let data = try? JSONSerialization.data(withJSONObject: interactionJson, options: [.sortedKeys]),
-           let text = String(data: data, encoding: .utf8) {
-            interactionText = text
-        } else {
-            interactionText = "User action: \(action.name) on surface: \(surfaceId)"
-        }
+        let interactionText = buildInteractionText(action: action, surfaceId: surfaceId)
         print("[GeminiTransport] sendAction: \(interactionText)")
         conversationHistory.append(GenAIPrimitives.ChatMessage.user(interactionText))
 
         let messages = try await generateContent()
         print("[GeminiTransport] sendAction returning \(messages.count) messages")
-        return TransportResponse(messages: messages, contextId: contextId, textResponse: lastTextResponse)    }
+        return TransportResponse(messages: messages, contextId: contextId, textResponse: lastTextResponse)
+    }
 
     func sendTextStream(_ text: String, contextId: String?) -> AsyncThrowingStream<StreamEvent, Error>? {
         return AsyncThrowingStream { continuation in
@@ -99,36 +72,47 @@ final class GeminiTravelTransport: TravelTransport {
         return AsyncThrowingStream { continuation in
             Task {
                 do {
-                    var actionContext: [String: Any] = [:]
-                    for (key, value) in action.context {
-                        switch value {
-                        case .string(let s): actionContext[key] = s
-                        case .number(let n): actionContext[key] = n
-                        case .bool(let b): actionContext[key] = b
-                        default: actionContext[key] = "\(value)"
-                        }
-                    }
-                    let interactionJson: [String: Any] = [
-                        "interaction": [
-                            "version": "v0.9",
-                            "action": [
-                                "surfaceId": surfaceId,
-                                "name": action.name,
-                                "sourceComponentId": action.sourceComponentId,
-                                "context": actionContext
-                            ] as [String: Any]
-                        ] as [String: Any]
-                    ]
-                    if let data = try? JSONSerialization.data(withJSONObject: interactionJson, options: [.sortedKeys]),
-                       let text = String(data: data, encoding: .utf8) {
-                        conversationHistory.append(GenAIPrimitives.ChatMessage.user(text))
-                    }
+                    let interactionText = buildInteractionText(action: action, surfaceId: surfaceId)
+                    conversationHistory.append(GenAIPrimitives.ChatMessage.user(interactionText))
                     try streamContent(continuation: continuation)
                 } catch {
                     continuation.finish(throwing: error)
                 }
             }
         }
+    }
+
+    /// Serialises a `ResolvedAction` to the A2UI interaction JSON string that is
+    /// sent as the user turn, matching Flutter's format.
+    ///
+    /// Both the non-streaming (`sendAction`) and streaming (`sendActionStream`)
+    /// paths use this shared helper to avoid duplicating the encoding logic.
+    private func buildInteractionText(action: ResolvedAction, surfaceId: String) -> String {
+        var actionContext: [String: Any] = [:]
+        for (key, value) in action.context {
+            switch value {
+            case .string(let s): actionContext[key] = s
+            case .number(let n): actionContext[key] = n
+            case .bool(let b): actionContext[key] = b
+            default: actionContext[key] = "\(value)"
+            }
+        }
+        let interactionJson: [String: Any] = [
+            "interaction": [
+                "version": "v0.9",
+                "action": [
+                    "surfaceId": surfaceId,
+                    "name": action.name,
+                    "sourceComponentId": action.sourceComponentId,
+                    "context": actionContext,
+                ] as [String: Any],
+            ] as [String: Any],
+        ]
+        if let data = try? JSONSerialization.data(withJSONObject: interactionJson, options: [.sortedKeys]),
+           let text = String(data: data, encoding: .utf8) {
+            return text
+        }
+        return "User action: \(action.name) on surface: \(surfaceId)"
     }
 
     @discardableResult
