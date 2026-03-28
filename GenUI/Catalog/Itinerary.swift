@@ -5,6 +5,63 @@
 import SwiftUI
 import A2UIV09
 
+// MARK: - Data Models
+
+enum ItineraryEntryType: String, Codable {
+    case accommodation
+    case transport
+    case activity
+
+    var systemImageName: String {
+        switch self {
+        case .accommodation: return "bed.double.fill"
+        case .transport: return "tram.fill"
+        case .activity: return "figure.hiking"
+        }
+    }
+}
+
+enum ItineraryEntryStatus: String, Codable {
+    case noBookingRequired
+    case choiceRequired
+    case chosen
+}
+
+struct ItineraryData {
+    let title: String
+    let subheading: String
+    let imageName: String
+    let days: [ItineraryDayData]
+    var imageNode: ComponentNode? = nil
+    var surface: SurfaceModel? = nil
+}
+
+struct ItineraryDayData: Identifiable {
+    let id = UUID()
+    let title: String
+    let subtitle: String
+    let description: String
+    let imageName: String
+    let entries: [ItineraryEntryData]
+    var imageNode: ComponentNode? = nil
+    var surface: SurfaceModel? = nil
+}
+
+struct ItineraryEntryData: Identifiable {
+    let id = UUID()
+    let title: String
+    var subtitle: String? = nil
+    let bodyText: String
+    var address: String? = nil
+    let time: String
+    var totalCost: String? = nil
+    let type: ItineraryEntryType
+    let status: ItineraryEntryStatus
+    var choiceRequiredAction: [String: Any]? = nil
+}
+
+// MARK: - Itinerary View
+
 /// Displays a multi-day travel itinerary as a compact card that expands
 /// to a full detail sheet. Equivalent to the Flutter `Itinerary` component.
 struct ItineraryView: View {
@@ -15,7 +72,6 @@ struct ItineraryView: View {
     @State private var isShowingDetail = false
 
     var body: some View {
-        // Compact card
         Button {
             isShowingDetail = true
         } label: {
@@ -77,7 +133,6 @@ struct ItineraryDetailSheet: View {
         NavigationStack {
             ScrollView {
                 VStack(alignment: .leading, spacing: 0) {
-                    // Hero image
                     if let node = data.imageNode, let surface = data.surface {
                         A2UIComponentView(node: node, surface: surface)
                             .frame(height: 200)
@@ -102,7 +157,6 @@ struct ItineraryDetailSheet: View {
                     }
                     .padding()
 
-                    // Days
                     ForEach(data.days) { day in
                         ItineraryDayView(
                             day: day,
@@ -135,7 +189,6 @@ struct ItineraryDayView: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 12) {
-            // Day header
             HStack(spacing: 12) {
                 if let node = day.imageNode, let surface = day.surface {
                     A2UIComponentView(node: node, surface: surface)
@@ -167,7 +220,6 @@ struct ItineraryDayView: View {
 
             Divider()
 
-            // Entries
             ForEach(day.entries) { entry in
                 ItineraryEntryView(
                     entry: entry,
@@ -265,11 +317,6 @@ struct ItineraryEntryView: View {
         }
         .padding(.vertical, 6)
     }
-}
-
-#Preview {
-    ItineraryView(data: MockData.greeceItinerary)
-        .padding()
 }
 
 // MARK: - A2UI Wrapper
@@ -383,4 +430,9 @@ struct A2UIItineraryView: View {
             surface: heroImageNode != nil ? surface : nil
         )
     }
+}
+
+#Preview {
+    ItineraryView(data: MockData.greeceItinerary)
+        .padding()
 }

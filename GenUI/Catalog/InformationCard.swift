@@ -5,6 +5,17 @@
 import SwiftUI
 import A2UIV09
 
+// MARK: - Data Model
+
+struct InformationCardData {
+    let title: String
+    let subtitle: String?
+    let body: String
+    let imageName: String?
+}
+
+// MARK: - View
+
 /// A card displaying detailed information about a travel destination.
 /// Equivalent to the Flutter `InformationCard` catalog component.
 struct InformationCardView: View {
@@ -14,7 +25,6 @@ struct InformationCardView: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 0) {
-            // Header image
             if let node = imageNode, let surface {
                 A2UIComponentView(node: node, surface: surface)
                     .frame(maxWidth: .infinity)
@@ -69,8 +79,6 @@ struct A2UIInformationCardView: View {
         let subtitle = A2UIHelpers.resolveString(props["subtitle"], surface: surface, dataContextPath: node.dataContextPath)
         let body = A2UIHelpers.resolveString(props["body"], surface: surface, dataContextPath: node.dataContextPath) ?? ""
 
-        // imageChildId is a direct component reference, not in "children" array.
-        // Build the node manually from the surface's component registry.
         let imageNode: ComponentNode? = {
             guard let imageChildId = props["imageChildId"]?.stringValue,
                   let model = surface.componentsModel.get(imageChildId) else { return nil }

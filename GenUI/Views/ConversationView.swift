@@ -158,15 +158,6 @@ struct LoadingBubble: View {
 
 // MARK: - Markdown rendering
 
-/// Parses inline Markdown (bold, italic, code, links) into an `AttributedString`.
-/// Falls back to plain text if parsing fails.
-func markdownAttributed(_ string: String) -> AttributedString {
-    (try? AttributedString(
-        markdown: string,
-        options: .init(interpretedSyntax: .inlineOnlyPreservingWhitespace)
-    )) ?? AttributedString(string)
-}
-
 /// Renders markdown text using iOS native AttributedString.
 /// Mirrors Flutter's `MarkdownWidget` (gpt_markdown) from utils.dart.
 struct MarkdownTextView: View {
