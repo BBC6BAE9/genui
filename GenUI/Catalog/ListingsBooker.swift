@@ -7,30 +7,6 @@ import A2UIV09
 
 // MARK: - Data Models
 
-struct HotelListing: Identifiable {
-    let id: String
-    let listingSelectionId: String
-    let name: String
-    let location: String
-    let pricePerNight: Double
-    let imageName: String
-    let checkIn: Date
-    let checkOut: Date
-    let guests: Int
-
-    var description: String {
-        "\(name) in \(location), $\(Int(pricePerNight))"
-    }
-
-    var nights: Int {
-        Calendar.current.dateComponents([.day], from: checkIn, to: checkOut).day ?? 0
-    }
-
-    var totalPrice: Double {
-        Double(nights) * pricePerNight
-    }
-}
-
 struct ListingsBookerData {
     let itineraryName: String
     var listings: [HotelListing]
@@ -130,7 +106,7 @@ struct ListingsBookerView: View {
                             ProgressView()
                                 .tint(.white)
                         case .done:
-                            Image(systemName: "checkmark")
+                            Label("Booked", systemImage: "checkmark.circle.fill")
                                 .font(.headline)
                         }
                     }
@@ -138,6 +114,7 @@ struct ListingsBookerView: View {
                     .padding(.vertical, 12)
                 }
                 .buttonStyle(.borderedProminent)
+                .tint(bookingStatus == .done ? .green : nil)
                 .disabled(selectedPaymentMethod == nil || bookingStatus != .initial)
             }
             .padding(.horizontal)

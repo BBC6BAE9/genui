@@ -5,52 +5,74 @@
 import XCTest
 @testable import GenUI
 
-/// Tests for `BookingService` and `HotelListing`.
+/// Tests for `BookingService`, `HotelListing`, and `ListHotelsTool`.
 ///
 /// Mirrors Flutter's `tools/hotels/list_hotels_tool_test.dart`.
 final class BookingServiceTests: XCTestCase {
 
-    func testListHotelsReturnsResults() {
-        let results = BookingService.instance.listHotels(
-            query: "Sunnyvale hotels",
-            checkIn: "2025-08-01",
-            checkOut: "2025-08-08",
-            guests: 2
-        )
-        XCTAssertEqual(results.count, 2)
+    private func makeSearch() -> HotelSearch {
+        HotelSearch.fromJson([
+            "query": "Sunnyvale hotels",
+            "checkIn": "2025-08-01",
+            "checkOut": "2025-08-08",
+            "guests": 2,
+        ])
+    }
+
+    func testListHotelsReturnsResults() async {
+        let result = await BookingService.instance.listHotels(makeSearch())
+        XCTAssertEqual(result.listings.count, 2)
+    }
+
+    func testListHotelsSyncReturnsResults() {
+        let result = BookingService.instance.listHotelsSync(makeSearch())
+        XCTAssertEqual(result.listings.count, 2)
     }
 
     func testListHotelsResultsHaveRequiredFields() {
-        let results = BookingService.instance.listHotels(
-            query: "test",
-            checkIn: "2025-07-01",
-            checkOut: "2025-07-05",
-            guests: 1
+        let result = BookingService.instance.listHotelsSync(
+            HotelSearch.fromJson([
+                "query": "test",
+                "checkIn": "2025-07-01",
+                "checkOut": "2025-07-05",
+                "guests": 1,
+            ])
         )
 
-        for result in results {
-            XCTAssertNotNil(result["description"] as? String)
-            XCTAssertNotNil(result["images"] as? [String])
-            XCTAssertNotNil(result["listingSelectionId"] as? String)
+        for listing in result.listings {
+            XCTAssertFalse(listing.name.isEmpty)
+            XCTAssertFalse(listing.location.isEmpty)
+            XCTAssertFalse(listing.imageName.isEmpty)
+            XCTAssertFalse(listing.listingSelectionId.isEmpty)
+        }
+    }
 
-            let selectionId = result["listingSelectionId"] as! String
-            XCTAssertFalse(selectionId.isEmpty)
+    func testToAiInputHasExpectedKeys() {
+        let result = BookingService.instance.listHotelsSync(makeSearch())
+        let aiInput = result.toAiInput()
+        let listings = aiInput["listings"] as? [[String: Any]]
+        XCTAssertNotNil(listings)
+        for item in listings ?? [] {
+            XCTAssertNotNil(item["description"] as? String)
+            XCTAssertNotNil(item["images"] as? [String])
+            XCTAssertNotNil(item["listingSelectionId"] as? String)
         }
     }
 
     func testListingsAreRemembered() {
-        let results = BookingService.instance.listHotels(
-            query: "test",
-            checkIn: "2025-06-01",
-            checkOut: "2025-06-10",
-            guests: 2
+        let result = BookingService.instance.listHotelsSync(
+            HotelSearch.fromJson([
+                "query": "test",
+                "checkIn": "2025-06-01",
+                "checkOut": "2025-06-10",
+                "guests": 2,
+            ])
         )
 
-        for result in results {
-            let selectionId = result["listingSelectionId"] as! String
-            let listing = BookingService.instance.listing(for: selectionId)
-            XCTAssertNotNil(listing, "Listing should be retrievable by selectionId")
-            XCTAssertEqual(listing?.listingSelectionId, selectionId)
+        for listing in result.listings {
+            let retrieved = BookingService.instance.listing(for: listing.listingSelectionId)
+            XCTAssertNotNil(retrieved, "Listing should be retrievable by selectionId")
+            XCTAssertEqual(retrieved?.listingSelectionId, listing.listingSelectionId)
         }
     }
 
@@ -89,13 +111,43 @@ final class BookingServiceTests: XCTestCase {
     }
 
     func testListingSelectionIdsAreUnique() {
-        let results = BookingService.instance.listHotels(
-            query: "test",
-            checkIn: "2025-09-01",
-            checkOut: "2025-09-05",
-            guests: 1
+        let result = BookingService.instance.listHotelsSync(
+            HotelSearch.fromJson([
+                "query": "test",
+                "checkIn": "2025-09-01",
+                "checkOut": "2025-09-05",
+                "guests": 1,
+            ])
         )
-        let ids = results.compactMap { $0["listingSelectionId"] as? String }
+        let ids = result.listings.map(\.listingSelectionId)
         XCTAssertEqual(ids.count, Set(ids).count, "Selection IDs should be unique")
+    }
+
+    func testHotelSearchFromJson() {
+        let search = HotelSearch.fromJson([
+            "query": "Tokyo hotels",
+            "checkIn": "2025-10-01",
+            "checkOut": "2025-10-05",
+            "guests": 3,
+        ])
+        XCTAssertEqual(search.query, "Tokyo hotels")
+        XCTAssertEqual(search.guests, 3)
+    }
+
+    func testListHotelsToolInvoke() async throws {
+        let tool = ListHotelsTool(onListHotels: { search in
+            await BookingService.instance.listHotels(search)
+        })
+        XCTAssertEqual(tool.name, "listHotels")
+
+        let result = try await tool.invoke([
+            "query": "test",
+            "checkIn": "2025-12-01",
+            "checkOut": "2025-12-05",
+            "guests": 2,
+        ])
+        let listings = result["listings"] as? [[String: Any]]
+        XCTAssertNotNil(listings)
+        XCTAssertEqual(listings?.count, 2)
     }
 }

@@ -9,17 +9,15 @@ import Foundation
 ///
 /// 1. Environment variable `GEMINI_API_KEY`
 /// 2. User-entered key stored in UserDefaults (`@AppStorage`)
-/// 3. Hardcoded fallback key
 enum GetApiKey {
     private static let environmentKey = "GEMINI_API_KEY"
     private static let userDefaultsKey = "geminiAPIKey"
-    private static let hardcodedKey = "AIzaSyAiGDbBcxBnqz0yPUnMLuVRoLSCak2mQ3Y"
 
-    /// Returns the best available API key.
+    /// Returns the API key if available, or an empty string if not configured.
     ///
     /// Checks the process environment first (set via Xcode scheme or CLI),
-    /// then the locally persisted key the user entered in Settings,
-    /// and finally falls back to the built-in demo key.
+    /// then the locally persisted key the user entered in Settings.
+    /// No hardcoded fallback — the user must provide their own key.
     static func resolve() -> String {
         if let envKey = ProcessInfo.processInfo.environment[environmentKey],
            !envKey.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
@@ -31,16 +29,11 @@ enum GetApiKey {
             return stored.trimmingCharacters(in: .whitespacesAndNewlines)
         }
 
-        return hardcodedKey
+        return ""
     }
 
-    /// Whether the user has explicitly configured a key (env or UserDefaults).
+    /// Whether the user has configured a key (env var or UserDefaults).
     static var hasUserProvidedKey: Bool {
-        if let envKey = ProcessInfo.processInfo.environment[environmentKey],
-           !envKey.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
-            return true
-        }
-        let stored = UserDefaults.standard.string(forKey: userDefaultsKey) ?? ""
-        return !stored.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+        !resolve().isEmpty
     }
 }

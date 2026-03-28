@@ -7,7 +7,9 @@ import A2UIV09
 import GenAIPrimitives
 
 /// The conversation list view showing messages and dynamic A2UI surfaces.
-struct ConversationView: View {
+///
+/// Mirrors Flutter's `Conversation` widget from `widgets/conversation.dart`.
+struct Conversation: View {
     let messages: [ConversationEntry]
     let viewModel: TravelPlannerViewModel
     
@@ -114,7 +116,7 @@ struct ModelMessageBubble: View {
                     .scaledToFit()
                     .frame(width: 22, height: 22)
                     .padding(.top, 2)
-                MarkdownTextView(text: text)
+                MarkdownWidget(text: text)
             }
             .padding(14)
             .background(.regularMaterial)
@@ -157,23 +159,13 @@ struct LoadingBubble: View {
 }
 
 // MARK: - Markdown rendering
-
-/// Renders markdown text using iOS native AttributedString.
-/// Mirrors Flutter's `MarkdownWidget` (gpt_markdown) from utils.dart.
-struct MarkdownTextView: View {
-    let text: String
-    
-    var body: some View {
-        Text(markdownAttributed(text))
-            .font(.body)
-            .tint(.blue)
-            .textSelection(.enabled)
-    }
-}
+//
+// `MarkdownWidget` is defined in `Utils.swift`, mirroring Flutter's
+// `MarkdownWidget` from `utils.dart`.
 
 #Preview {
     ScrollView {
-        ConversationView(
+        Conversation(
             messages: [
                 .agent("Welcome!"),
                 .user("Plan a trip to Greece"),
@@ -186,7 +178,7 @@ struct MarkdownTextView: View {
 
 #Preview {
     ScrollView {
-        ConversationView(
+        Conversation(
             messages: [
                 .agent("I'd love to help you plan a trip! To get started, what king of experience are you looking for?"),
             ],

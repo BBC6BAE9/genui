@@ -24,20 +24,13 @@ final class TravelPlannerViewModel {
     /// Mirrors Flutter's explicit `_scrollToBottom()` calls in travel_planner_page.dart.
     var scrollTrigger: Int = 0
 
-    /// The travel-app catalog (custom components + basic catalog functions).
-    static let travelCatalog = Catalog(
-        id: "https://a2ui.org/specification/v0_9/standard_catalog.json",
-        componentNames: basicCatalog.componentNames.union(Set(TravelComponentNames.allNames)),
-        functions: basicCatalog.functions
-    )
-
     /// Persistent message processor — shared across the entire conversation.
-    /// Supports both the legacy short "travel" catalog ID (used in mocks)
-    /// and the canonical URL (used by the LLM).
+    /// Supports both the canonical `travelAppCatalog` (from `Catalog.swift`,
+    /// mirroring Flutter's `catalog.dart`) and a legacy short-id alias so mock
+    /// data with `catalogId: "travel"` still works.
     let messageProcessor = MessageProcessor(
         catalogs: [
-            travelCatalog,
-            // Legacy short-id alias so mock data with catalogId:"travel" still works.
+            travelAppCatalog,
             Catalog(
                 id: "travel",
                 componentNames: basicCatalog.componentNames.union(Set(TravelComponentNames.allNames)),
@@ -201,7 +194,7 @@ final class TravelPlannerViewModel {
                 if messageProcessor.model.getSurface(sid) == nil {
                     let autoCreate = A2uiMessage.createSurface(CreateSurfacePayload(
                         surfaceId: sid,
-                        catalogId: Self.travelCatalog.id,
+                        catalogId: travelAppCatalog.id,
                         sendDataModel: true
                     ))
                     messageProcessor.processMessages([autoCreate])

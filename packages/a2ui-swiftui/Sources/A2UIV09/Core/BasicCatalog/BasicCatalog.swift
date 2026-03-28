@@ -14,6 +14,11 @@
 
 import Foundation
 
+/// The catalog ID for the basic catalog.
+/// Mirrors Flutter's `basicCatalogId` from `primitives/constants.dart`.
+public let basicCatalogId =
+    "https://a2ui.org/specification/v0_9/standard_catalog.json"
+
 /// The ready-to-use Basic Catalog instance.
 ///
 /// Contains all 18 standard components and 25 built-in functions.
